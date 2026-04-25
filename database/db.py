@@ -8,6 +8,8 @@ client = AsyncIOMotorClient(MONGODB_URI)
 db = client[MONGODB_DB]
 
 shipments = db["shipments"]
+shipment_types = db["shipment_types"]
 sensor_readings = db["sensor_readings"]
 timeline_events = db["timeline_events"]
 incident_reports = db["incident_reports"]
+escalation_drafts = db["escalation_drafts"]

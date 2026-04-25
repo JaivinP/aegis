@@ -30,6 +30,7 @@ class Location(BaseModel):
 
 
 class ShipmentType(BaseModel):
+    shipmentTypeId: str
     name: str
     category: Literal["pharmaceutical", "food", "biologic", "custom"]
     safeTempRange: TemperatureRange
