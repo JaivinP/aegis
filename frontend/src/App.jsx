@@ -1,93 +1,42 @@
-import { useState } from 'react'
+import { Routes, Route, Link, useLocation } from 'react-router-dom'
 import './App.css'
-import ShipmentSelector from './components/ShipmentSelector'
-import ContainerConnection from './components/ContainerConnection'
-import MonitoringDashboard from './components/MonitoringDashboard'
-import FinalReport from './components/FinalReport'
-
-const PHASE_LABELS = {
-  select: 'SELECT SHIPMENT',
-  connect: 'CONNECTING CONTAINER',
-  monitor: 'LIVE MONITORING',
-  report: 'DELIVERY REPORT',
-}
+import Dashboard from './pages/Dashboard'
+import NewShipment from './pages/NewShipment'
+import ConnectPage from './pages/ConnectPage'
+import MonitorPage from './pages/MonitorPage'
+import ReportPage from './pages/ReportPage'
 
 export default function App() {
-  const [phase, setPhase] = useState('select')
-  const [selectedShipment, setSelectedShipment] = useState(null)
-  const [reportData, setReportData] = useState(null)
-
-  function handleSelectShipment(shipment) {
-    setSelectedShipment(shipment)
-    setPhase('connect')
-  }
-
-  function handleConnectionComplete() {
-    setPhase('monitor')
-  }
-
-  function handleEndDelivery(data) {
-    setReportData(data)
-    setPhase('report')
-  }
-
-  function handleRestart() {
-    setSelectedShipment(null)
-    setReportData(null)
-    setPhase('select')
-  }
-
   return (
     <div className="app">
-      <AppNav phase={phase} shipment={selectedShipment} />
-
-      {phase === 'select' && (
-        <ShipmentSelector onSelect={handleSelectShipment} />
-      )}
-      {phase === 'connect' && (
-        <ContainerConnection
-          shipment={selectedShipment}
-          onComplete={handleConnectionComplete}
-        />
-      )}
-      {phase === 'monitor' && (
-        <MonitoringDashboard
-          shipment={selectedShipment}
-          onEndDelivery={handleEndDelivery}
-        />
-      )}
-      {phase === 'report' && (
-        <FinalReport
-          data={reportData}
-          shipment={selectedShipment}
-          onRestart={handleRestart}
-        />
-      )}
+      <AppNav />
+      <Routes>
+        <Route path="/" element={<Dashboard />} />
+        <Route path="/shipments/new" element={<NewShipment />} />
+        <Route path="/shipments/:id/connect" element={<ConnectPage />} />
+        <Route path="/shipments/:id/monitor" element={<MonitorPage />} />
+        <Route path="/shipments/:id/report" element={<ReportPage />} />
+      </Routes>
     </div>
   )
 }
 
-function AppNav({ phase, shipment }) {
+function AppNav() {
+  const location = useLocation()
+  const isMonitor = location.pathname.includes('/monitor')
+
   return (
     <nav className="nav">
       <div className="nav-inner">
-        <div className="logo">
+        <Link to="/" className="logo">
           <span className="logo-icon">◈</span>
           <span className="logo-text">AEGIS</span>
-        </div>
+        </Link>
 
-        {shipment && (
-          <div className="nav-shipment-badge mono">{shipment.name.toUpperCase()}</div>
-        )}
-
-        <div className="nav-phase-label mono" style={{ marginLeft: 'auto' }}>
-          {PHASE_LABELS[phase]}
-        </div>
-
-        <div className="nav-status">
+        <div className="nav-status" style={{ marginLeft: 'auto' }}>
           <span className="pulse-dot green" />
           <span className="mono" style={{ fontSize: '0.75rem', color: 'var(--teal)' }}>
-            SYSTEM ONLINE
+            {isMonitor ? 'LIVE MONITORING' : 'SYSTEM ONLINE'}
           </span>
         </div>
       </div>

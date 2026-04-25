@@ -1,5 +1,6 @@
+from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any
+from typing import Any, Dict
 
 from dotenv import load_dotenv
 from fastapi import FastAPI, HTTPException, status
@@ -16,7 +17,7 @@ from db import (  # noqa: E402
     shipments,
     timeline_events,
 )
-from models import AIReport, EscalationDraft, Event, SensorReading, Shipment, ShipmentType  # noqa: E402
+from models import EscalationDraft, Event, SensorReading, Shipment, ShipmentType  # noqa: E402
 
 app = FastAPI(title="Aegis Database API")
 
@@ -61,8 +62,16 @@ async def create_shipment_type(payload: ShipmentType):
 
 @app.get("/shipment-types")
 async def get_shipment_types():
-    cursor = shipment_types.find({}, {"_id": 0}).sort("shipmentTypeId", 1)
+    cursor = shipment_types.find({}, {"_id": 0}).sort("createdAt", -1)
     return await cursor.to_list(length=100)
+
+
+@app.delete("/shipment-types/{type_id}", status_code=status.HTTP_200_OK)
+async def delete_shipment_type(type_id: str):
+    result = await shipment_types.delete_one({"shipmentTypeId": type_id})
+    if result.deleted_count == 0:
+        raise HTTPException(status_code=404, detail="shipment type not found")
+    return {"ok": True}
 
 
 # --- Shipments ---
@@ -75,9 +84,24 @@ async def create_shipment(payload: Shipment):
     return {"ok": True, "id": str(result.inserted_id), "shipmentId": payload.shipmentId}
 
 
+@app.get("/shipments")
+async def list_shipments():
+    cursor = shipments.find({}, {"_id": 0}).sort("createdAt", -1)
+    return await cursor.to_list(length=200)
+
+
 @app.get("/shipments/{shipment_id}")
 async def get_shipment(shipment_id: str):
     return await require_doc(shipments, {"shipmentId": shipment_id}, "shipment")
+
+
+@app.patch("/shipments/{shipment_id}")
+async def update_shipment(shipment_id: str, payload: Dict[str, Any]):
+    payload["updatedAt"] = datetime.now(timezone.utc)
+    result = await shipments.update_one({"shipmentId": shipment_id}, {"$set": payload})
+    if result.matched_count == 0:
+        raise HTTPException(status_code=404, detail="shipment not found")
+    return {"ok": True}
 
 
 # --- Sensor readings ---
@@ -122,10 +146,10 @@ async def get_timeline(shipment_id: str):
 
 
 @app.post("/shipments/{shipment_id}/reports", status_code=status.HTTP_201_CREATED)
-async def save_report(shipment_id: str, payload: AIReport):
-    doc = mongo_doc(payload)
-    doc["shipmentId"] = shipment_id
-    result = await incident_reports.insert_one(doc)
+async def save_report(shipment_id: str, payload: Dict[str, Any]):
+    payload["shipmentId"] = shipment_id
+    payload.setdefault("generatedAt", datetime.now(timezone.utc).isoformat())
+    result = await incident_reports.insert_one(payload)
     return {"ok": True, "id": str(result.inserted_id), "shipmentId": shipment_id}
 
 

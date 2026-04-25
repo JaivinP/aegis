@@ -3,6 +3,18 @@ import SensorPanel from './SensorPanel'
 import AIAnalysisPanel from './AIAnalysisPanel'
 import RoutePanel from './RoutePanel'
 import TimelinePanel from './TimelinePanel'
+import { addEvent } from '../api'
+
+function postEvent(shipmentId, label, type, severity, time) {
+  addEvent(shipmentId, {
+    shipmentId,
+    type: type === 'alert' ? 'SHOCK_EVENT' : type === 'doc' ? 'ESCALATION' : 'AI_ANALYSIS',
+    severity: severity || (type === 'alert' ? 'CRITICAL' : 'INFO'),
+    title: label,
+    description: label,
+    timestamp: (time || new Date()).toISOString(),
+  }).catch(() => {})
+}
 
 const ROUTE_LOCATIONS = [
   [0, 22, 'Los Angeles, CA'],
@@ -54,15 +66,31 @@ function getInitialTimeline() {
   ]
 }
 
-export default function MonitoringDashboard({ shipment, onEndDelivery }) {
+// Normalize DB shipment (productName, tempMin, etc.) to the shape the dashboard expects
+function normalizeShipment(s) {
+  return {
+    name: s.productName || s.name || 'Unknown',
+    tempNominal: s.tempNominal ?? 4.2,
+    tempMin: s.tempMin ?? 2,
+    tempMax: s.tempMax ?? 8,
+    humidityNominal: s.humidityNominal ?? 38,
+    humidityMin: s.humidityMin ?? 30,
+    humidityMax: s.humidityMax ?? 50,
+    complianceFramework: s.complianceFramework || '',
+    icon: s.icon || '📦',
+  }
+}
+
+export default function MonitoringDashboard({ shipment: rawShipment, shipmentId: propShipmentId, onEndDelivery }) {
+  const shipment = normalizeShipment(rawShipment)
   const [sensors, setSensors] = useState(() => getNominalSensors(shipment))
   const [analysis, setAnalysis] = useState(() => getNominalAnalysis(shipment))
   const [timeline, setTimeline] = useState(getInitialTimeline)
   const [incidentActive, setIncidentActive] = useState(false)
   const incidentRef = useRef(false)
 
-  // Stable shipment ID — generated once
-  const shipmentId = useRef(`AGS-${Math.floor(Math.random() * 9000) + 1000}`).current
+  const generatedId = useRef(`AGS-${Math.floor(Math.random() * 9000) + 1000}`).current
+  const shipmentId = propShipmentId || generatedId
 
   // Live nominal jitter every 2 seconds
   useEffect(() => {
@@ -102,6 +130,7 @@ export default function MonitoringDashboard({ shipment, onEndDelivery }) {
       ...prev,
       { time: t0, label: 'Shock event detected — 3.8g impact recorded', type: 'alert' },
     ])
+    postEvent(shipmentId, 'Shock event detected — 3.8g impact recorded', 'alert', 'CRITICAL', t0)
 
     // +1.5s: thermal excursion
     setTimeout(() => {
@@ -112,14 +141,12 @@ export default function MonitoringDashboard({ shipment, onEndDelivery }) {
         routeProgress: Math.min(prev.routeProgress + 2, 95),
         location: getLocation(Math.min(prev.routeProgress + 2, 95)),
       }))
+      const t1 = new Date()
       setTimeline((prev) => [
         ...prev,
-        {
-          time: new Date(),
-          label: 'Temperature anomaly — excursion above safe threshold detected',
-          type: 'alert',
-        },
+        { time: t1, label: 'Temperature anomaly — excursion above safe threshold detected', type: 'alert' },
       ])
+      postEvent(shipmentId, 'Temperature anomaly — excursion above safe threshold detected', 'alert', 'CRITICAL', t1)
     }, 1500)
 
     // +2.8s: AI classification
@@ -134,10 +161,12 @@ export default function MonitoringDashboard({ shipment, onEndDelivery }) {
         tamperingConfidence: 74.1,
         negligenceConfidence: 62.8,
       })
+      const t2 = new Date()
       setTimeline((prev) => [
         ...prev,
-        { time: new Date(), label: 'AI classified incident — CRITICAL', type: 'alert' },
+        { time: t2, label: 'AI classified incident — CRITICAL', type: 'alert' },
       ])
+      postEvent(shipmentId, 'AI classified incident — CRITICAL', 'ai', 'CRITICAL', t2)
     }, 2800)
 
     // +4s: response documents drafted

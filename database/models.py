@@ -32,9 +32,12 @@ class Location(BaseModel):
 class ShipmentType(BaseModel):
     shipmentTypeId: str
     name: str
+    icon: Optional[str] = None
     category: Literal["pharmaceutical", "food", "biologic", "custom"]
     safeTempRange: TemperatureRange
     safeHumidityRange: Optional[HumidityRange] = None
+    tempNominal: Optional[float] = None
+    humidityNominal: Optional[float] = None
     complianceFrameworks: List[str] = Field(default_factory=list)
     degradationModel: DegradationModel = Field(default_factory=DegradationModel)
     createdAt: datetime = Field(default_factory=utc_now)
@@ -43,16 +46,25 @@ class ShipmentType(BaseModel):
 
 class Shipment(BaseModel):
     shipmentId: str
-    shipmentTypeId: str
+    shipmentTypeId: Optional[str] = None
     productName: str
+    icon: Optional[str] = None
     origin: str
     destination: str
+    # Flat threshold fields for easy dashboard use
+    tempMin: Optional[float] = None
+    tempMax: Optional[float] = None
+    tempNominal: Optional[float] = None
+    humidityMin: Optional[float] = None
+    humidityMax: Optional[float] = None
+    humidityNominal: Optional[float] = None
+    complianceFramework: Optional[str] = None
     status: Literal[
         "CREATED", "CONNECTING", "IN_TRANSIT", "COMPLETED", "ESCALATED"
     ] = "CREATED"
     currentPhase: Literal["select", "connect", "monitor", "report"] = "select"
     routeProgress: float = 0
-    containerId: str
+    containerId: Optional[str] = None
     currentLocation: Optional[Location] = None
     routeCheckpoints: List[str] = Field(default_factory=list)
     finalStatus: Optional[Literal["SAFE", "AT_RISK", "COMPROMISED"]] = None
