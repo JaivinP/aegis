@@ -29,6 +29,7 @@
           default = pkgs.mkShellNoCC {
             packages = with pkgs; [
               deno
+              httpie
               self.formatter.${system}
             ];
           };
