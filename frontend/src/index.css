@@ -1,0 +1,39 @@
+*, *::before, *::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+:root {
+  --bg: #050a0f;
+  --bg-card: #0c1520;
+  --bg-card-hover: #111d2e;
+  --border: rgba(0, 200, 180, 0.12);
+  --border-hover: rgba(0, 200, 180, 0.35);
+  --teal: #00c8b4;
+  --teal-dim: rgba(0, 200, 180, 0.15);
+  --teal-glow: rgba(0, 200, 180, 0.08);
+  --cyan: #38bdf8;
+  --text: #e2e8f0;
+  --text-muted: #64748b;
+  --text-dim: #94a3b8;
+  --red: #ef4444;
+  --amber: #f59e0b;
+  --green: #22c55e;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  background-color: var(--bg);
+  color: var(--text);
+  font-family: 'Inter', sans-serif;
+  line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+}
+
+.mono {
+  font-family: 'JetBrains Mono', monospace;
+}
