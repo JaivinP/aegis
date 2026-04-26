@@ -166,12 +166,127 @@ export default function MonitoringDashboard({ shipment: rawShipment, shipmentId:
   const sensorsRef = useRef(sensors)
   const analysisRef = useRef(analysis)
   const incidentActiveRef = useRef(false)
+  // Live anomaly detection refs
+  const prevLiveDataRef = useRef(null)
+  const lastAiTriggerRef = useRef(0)
+  const aiRunningRef = useRef(false)
 
   useEffect(() => { sensorHistoryRef.current = sensorHistory }, [sensorHistory])
   useEffect(() => { timelineRef.current = timeline }, [timeline])
   useEffect(() => { sensorsRef.current = sensors }, [sensors])
   useEffect(() => { analysisRef.current = analysis }, [analysis])
   useEffect(() => { incidentActiveRef.current = incidentActive }, [incidentActive])
+  useEffect(() => { aiRunningRef.current = activeAgentEvent?.status === 'ANALYZING' }, [activeAgentEvent])
+
+  // Live anomaly detection — triggers AI on red anomalies or big sensor shifts
+  useEffect(() => {
+    if (!liveData) return
+
+    const prev = prevLiveDataRef.current
+    prevLiveDataRef.current = liveData
+
+    if (!prev) return
+    if (aiRunningRef.current) return
+    if (Date.now() - lastAiTriggerRef.current < 60000) return
+
+    const reasons = []
+
+    // Red anomalies — values outside safe thresholds
+    if (liveData.temperature < shipment.tempMin || liveData.temperature > shipment.tempMax) {
+      reasons.push(`Temperature out of range: ${liveData.temperature.toFixed(1)}°C (safe: ${shipment.tempMin}–${shipment.tempMax}°C)`)
+    }
+    if (liveData.humidity < shipment.humidityMin || liveData.humidity > shipment.humidityMax) {
+      reasons.push(`Humidity out of range: ${liveData.humidity.toFixed(0)}% (safe: ${shipment.humidityMin}–${shipment.humidityMax}%)`)
+    }
+    if (liveData.shockDetected > 0) {
+      reasons.push(`Shock detected: ${liveData.shockDetected.toFixed(2)}`)
+    }
+    if (liveData.water >= 30) {
+      reasons.push(`Water exposure: ${liveData.water.toFixed(0)}`)
+    }
+
+    // Big shifts since last reading
+    const tempShift = Math.abs(liveData.temperature - prev.temperature)
+    const humidityShift = Math.abs(liveData.humidity - prev.humidity)
+    if (tempShift > 3) {
+      reasons.push(`Large temperature shift: ${tempShift.toFixed(1)}°C`)
+    }
+    if (humidityShift > 15) {
+      reasons.push(`Large humidity shift: ${humidityShift.toFixed(0)}%`)
+    }
+
+    if (reasons.length === 0) return
+
+    lastAiTriggerRef.current = Date.now()
+    const triggerReason = reasons.join('; ')
+    const t = new Date()
+    const triggerSensors = {
+      ...sensorsRef.current,
+      temperature: liveData.temperature,
+      humidity: liveData.humidity,
+      water: liveData.water,
+      shockDetected: liveData.shockDetected,
+    }
+
+    setTimeline((prev) => [...prev, { time: t, label: `Live anomaly — ${triggerReason}`, type: 'alert' }])
+    postEvent(shipmentId, `Live anomaly — ${triggerReason}`, 'alert', 'WARNING', t)
+
+    setActiveAgentEvent({
+      id: `narrative-loading-${Date.now()}`,
+      agent: AGENTS.narrative,
+      command: `Analyze live anomaly on shipment ${shipmentId}`,
+      status: 'ANALYZING',
+      title: 'Narrative Agent analyzing live anomaly',
+      classification: 'PENDING',
+      confidence: 0,
+      assessment: `Live sensor anomaly detected: ${triggerReason}`,
+      hypothesis: 'Waiting for agent response.',
+      action: 'Waiting for agent response.',
+      prediction: 'Waiting for agent response.',
+      body: '',
+    })
+
+    const payload = buildAgentPayload({
+      shipment,
+      shipmentId,
+      sensors: triggerSensors,
+      sensorHistory: [
+        ...sensorHistoryRef.current,
+        { ts: Date.now(), temperature: liveData.temperature, humidity: liveData.humidity },
+      ],
+      timeline: [...timelineRef.current, { time: t, label: `Live anomaly — ${triggerReason}`, type: 'alert' }],
+      analysis: analysisRef.current,
+      incident: {
+        trigger: triggerReason,
+        severity: 'WARNING',
+        detectedAt: t.toISOString(),
+      },
+    })
+
+    callNarrativeAgent(payload)
+      .then((response) => {
+        setActiveAgentEvent(createNarrativeEventFromAgentResponse({ response, shipmentId }))
+        const doneAt = new Date()
+        setTimeline((prev) => [...prev, { time: doneAt, label: 'Narrative Agent returned live anomaly classification', type: 'alert' }])
+        postEvent(shipmentId, 'Narrative Agent returned live anomaly classification', 'ai', 'WARNING', doneAt)
+      })
+      .catch((error) => {
+        setActiveAgentEvent({
+          id: `narrative-error-${Date.now()}`,
+          agent: AGENTS.narrative,
+          command: `Analyze live anomaly on shipment ${shipmentId}`,
+          status: 'ERROR',
+          title: 'Narrative Agent call failed',
+          classification: 'ERROR',
+          confidence: 0,
+          assessment: error.message,
+          hypothesis: 'No agent output returned.',
+          action: 'Check the database API, agent dependencies, and ASI1_API_KEY.',
+          prediction: 'No prediction available.',
+          body: error.message,
+        })
+      })
+  }, [liveData]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // Register this dashboard in the keyboard context so overlays can read live state
   useEffect(() => {

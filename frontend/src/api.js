@@ -40,3 +40,5 @@ export const callNarrativeAgent = (data) =>
   req('POST', '/agents/narrative/analyze', data)
 export const callResponseAgent = (data) =>
   req('POST', '/agents/response/report', data)
+export const stopVoice = () =>
+  req('POST', '/agents/voice/stop', {})

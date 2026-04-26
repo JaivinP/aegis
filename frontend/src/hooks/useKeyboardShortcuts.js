@@ -1,6 +1,7 @@
 import { useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useKeyboard } from '../context/KeyboardContext'
+import { stopVoice } from '../api'
 
 export function useKeyboardShortcuts() {
   const kb = useKeyboard()
@@ -84,6 +85,11 @@ export function useKeyboardShortcuts() {
           if (kb.dashboardCtx?.incidentActiveRef?.current) {
             kb.setIncidentZoomOpen((v) => !v)
           }
+          break
+        case 'x':
+        case 'X':
+          e.preventDefault()
+          stopVoice().catch(() => {})
           break
       }
     }

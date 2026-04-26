@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useKeyboard } from '../context/KeyboardContext'
+import { stopVoice } from '../api'
 
 const COMMANDS = [
   { id: 'mission-control',  icon: '⬛', label: 'Mission Control',    desc: 'All shipments grid',           category: 'Navigation' },
@@ -8,6 +9,7 @@ const COMMANDS = [
   { id: 'sensor-matrix',    icon: '◫',  label: 'Sensor Matrix',      desc: 'Live sensor wall view',        category: 'Navigation' },
   { id: 'dashboard',        icon: '◧',  label: 'Go to Dashboard',    desc: 'Return to shipment dashboard', category: 'Navigation' },
   { id: 'ai-query',         icon: '◈',  label: 'Ask Aegis',          desc: 'AI operational intelligence',  category: 'AI' },
+  { id: 'stop-voice',       icon: '◻',  label: 'Stop Voice',         desc: 'Stop any playing audio alert', category: 'AI' },
   { id: 'report',           icon: '▤',  label: 'Open Report',        desc: 'Delivery report drawer',       category: 'Shipment' },
   { id: 'incident-zoom',    icon: '◉',  label: 'Incident Zoom',      desc: 'Detailed incident analysis',   category: 'Incident' },
   { id: 'trigger-incident', icon: '⚡', label: 'Inject Sensor Event', desc: 'Simulate mishandling',        category: 'Demo' },
@@ -68,6 +70,7 @@ export default function CommandPalette() {
         case 'sensor-matrix':     setSensorMatrixOpen(true);   break
         case 'dashboard':         navigate('/');               break
         case 'ai-query':          setAiQueryOpen(true);        break
+        case 'stop-voice':        stopVoice().catch(() => {});  break
         case 'report':            setReportDrawerOpen(true);   break
         case 'incident-zoom':
           if (dashboardCtx?.incidentActiveRef?.current) setIncidentZoomOpen(true)
