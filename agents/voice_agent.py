@@ -4,6 +4,7 @@ import json
 import os
 import subprocess
 import sys
+from threading import Lock
 from pathlib import Path
 from typing import Any, Dict, Optional
 from urllib.error import HTTPError, URLError
@@ -18,6 +19,26 @@ DEFAULT_VOICE_ID = "JBFqnCBsd6RMkjVDRZzb"
 DEFAULT_MODEL_ID = "eleven_flash_v2_5"
 DEFAULT_OUTPUT_FORMAT = "mp3_44100_128"
 DEFAULT_TEXT = "The first move is what sets everything in motion."
+_ACTIVE_ALERT_KEYS: set[str] = set()
+_ACTIVE_ALERT_LOCK = Lock()
+
+
+def get_alert_key(payload: Dict[str, Any]) -> str:
+    shipment = payload.get("shipment", {})
+    return str(
+        payload.get("shipmentId")
+        or shipment.get("shipmentId")
+        or shipment.get("productName")
+        or "current-shipment"
+    )
+
+
+def reset_voice_alert(shipment_id: str) -> bool:
+    key = str(shipment_id or "current-shipment")
+    with _ACTIVE_ALERT_LOCK:
+        was_active = key in _ACTIVE_ALERT_KEYS
+        _ACTIVE_ALERT_KEYS.discard(key)
+    return was_active
 
 
 def load_voice_env() -> None:
@@ -233,8 +254,21 @@ def alert_for_anomaly(
     output_path: Path = DEFAULT_OUTPUT,
     play: bool = True,
 ) -> Dict[str, Any]:
+    alert_key = get_alert_key(payload)
+
+    if payload.get("suppressVoice"):
+        with _ACTIVE_ALERT_LOCK:
+            _ACTIVE_ALERT_KEYS.add(alert_key)
+        return {"triggered": False, "suppressed": True, "reason": "active_issue_already_alerted"}
+
     if not should_voice_alert(payload, narrative_text):
+        reset_voice_alert(alert_key)
         return {"triggered": False}
+
+    with _ACTIVE_ALERT_LOCK:
+        if alert_key in _ACTIVE_ALERT_KEYS:
+            return {"triggered": False, "suppressed": True, "reason": "active_issue_already_alerted"}
+        _ACTIVE_ALERT_KEYS.add(alert_key)
 
     text = build_anomaly_alert_text(payload, narrative_text)
     audio_path = synthesize_speech(text=text, output_path=output_path)
