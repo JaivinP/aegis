@@ -39,6 +39,83 @@ function buildPayload(question, ctx) {
   }
 }
 
+const CLASSIFICATION_COLORS = {
+  NOMINAL:    { bg: 'rgba(110,169,122,0.15)', text: '#6ea97a', border: 'rgba(110,169,122,0.4)' },
+  ANOMALY:    { bg: 'rgba(230,190,80,0.15)',  text: '#e6be50', border: 'rgba(230,190,80,0.4)' },
+  NEGLIGENCE: { bg: 'rgba(230,140,50,0.15)',  text: '#e68c32', border: 'rgba(230,140,50,0.4)' },
+  TAMPERING:  { bg: 'rgba(220,80,80,0.15)',   text: '#dc5050', border: 'rgba(220,80,80,0.4)' },
+  CRITICAL:   { bg: 'rgba(220,60,60,0.18)',   text: '#e03030', border: 'rgba(220,60,60,0.5)' },
+}
+
+function parseResponse(text) {
+  const sections = {}
+  const keys = ['CLASSIFICATION', 'CONFIDENCE', 'ASSESSMENT', 'COMPETING HYPOTHESIS', 'RECOMMENDED ACTION', 'PREDICTION']
+  for (let i = 0; i < keys.length; i++) {
+    const key = keys[i]
+    const next = keys[i + 1]
+    const start = text.indexOf(key + ':')
+    if (start === -1) continue
+    const valueStart = start + key.length + 1
+    const end = next ? text.indexOf(next + ':') : text.length
+    sections[key] = text.slice(valueStart, end !== -1 ? end : text.length).trim()
+  }
+  return Object.keys(sections).length > 0 ? sections : null
+}
+
+function FailsafeResponse({ text }) {
+  const parsed = parseResponse(text)
+
+  if (!parsed) {
+    return (
+      <div className="kb-ai-response">
+        <div className="kb-ai-response-label mono">FAILSAFE ANALYSIS</div>
+        <p className="kb-ai-response-text">{text}</p>
+      </div>
+    )
+  }
+
+  const cls = parsed['CLASSIFICATION']?.split(/[\s/]/)[0]?.trim().toUpperCase()
+  const clsStyle = CLASSIFICATION_COLORS[cls] || CLASSIFICATION_COLORS.NOMINAL
+
+  return (
+    <div className="kb-ai-response kb-ai-response--parsed">
+      <div className="kb-ai-response-label mono">FAILSAFE ANALYSIS</div>
+
+      {cls && (
+        <div className="kb-ai-row kb-ai-classification-row">
+          <span
+            className="kb-ai-badge"
+            style={{ background: clsStyle.bg, color: clsStyle.text, border: `1px solid ${clsStyle.border}` }}
+          >
+            {cls}
+          </span>
+          {parsed['CONFIDENCE'] && (
+            <span className="kb-ai-confidence mono">{parsed['CONFIDENCE']}</span>
+          )}
+        </div>
+      )}
+
+      {parsed['ASSESSMENT'] && (
+        <p className="kb-ai-section-text">{parsed['ASSESSMENT']}</p>
+      )}
+
+      {parsed['RECOMMENDED ACTION'] && (
+        <div className="kb-ai-action-row">
+          <span className="kb-ai-action-label mono">ACTION</span>
+          <span className="kb-ai-action-text">{parsed['RECOMMENDED ACTION']}</span>
+        </div>
+      )}
+
+      {parsed['PREDICTION'] && (
+        <div className="kb-ai-prediction-row">
+          <span className="kb-ai-prediction-label mono">15 MIN</span>
+          <span className="kb-ai-prediction-text">{parsed['PREDICTION']}</span>
+        </div>
+      )}
+    </div>
+  )
+}
+
 export default function AIQueryOverlay() {
   const { aiQueryOpen, setAiQueryOpen, dashboardCtx } = useKeyboard()
   const [question, setQuestion] = useState('')
@@ -129,12 +206,7 @@ export default function AIQueryOverlay() {
           </div>
         )}
 
-        {response && (
-          <div className="kb-ai-response">
-            <div className="kb-ai-response-label mono">FAILSAFE ANALYSIS</div>
-            <p className="kb-ai-response-text">{response}</p>
-          </div>
-        )}
+        {response && <FailsafeResponse text={response} />}
 
         <div className="kb-ai-footer mono">
           <span><kbd className="kb-key kb-key--xs">enter</kbd> submit</span>
