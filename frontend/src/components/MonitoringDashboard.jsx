@@ -612,9 +612,6 @@ export default function MonitoringDashboard({ shipment: rawShipment, shipmentId:
       </div>
 
       <div className="dashboard-body">
-        {/* ── Photo request panel ── */}
-        <PhotoRequestPanel shipmentId={shipmentId} />
-
         {/* ── Main grid ── */}
         <div className="dashboard-grid">
           <SensorPanel sensors={{...sensors, temperature: liveData.temperature, humidity: liveData.humidity, water: liveData.water, shockDetected: liveData.shockDetected, light: liveData.light}} shipment={shipment} />

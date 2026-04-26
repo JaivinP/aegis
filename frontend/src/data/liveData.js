@@ -31,7 +31,7 @@ export function useLiveData() {
         if (!cancelled) setData(json);
         } catch {}
 
-        if (!cancelled) setTimeout(fetchData, 500);
+        if (!cancelled) setTimeout(fetchData, 100);
     };
 
     fetchData();
