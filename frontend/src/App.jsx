@@ -1,5 +1,8 @@
+import { useEffect, useRef } from 'react'
 import { Routes, Route, Link, useLocation } from 'react-router-dom'
 import './App.css'
+import { NotificationProvider, useNotifications } from './context/NotificationContext'
+import { listShipments } from './api'
 import Dashboard from './pages/Dashboard'
 import NewShipment from './pages/NewShipment'
 import ConnectPage from './pages/ConnectPage'
@@ -8,22 +11,69 @@ import ReportPage from './pages/ReportPage'
 
 export default function App() {
   return (
-    <div className="app">
-      <AppNav />
-      <Routes>
-        <Route path="/" element={<Dashboard />} />
-        <Route path="/shipments/new" element={<NewShipment />} />
-        <Route path="/shipments/:id/connect" element={<ConnectPage />} />
-        <Route path="/shipments/:id/monitor" element={<MonitorPage />} />
-        <Route path="/shipments/:id/report" element={<ReportPage />} />
-      </Routes>
-    </div>
+    <NotificationProvider>
+      <div className="app">
+        <AppNav />
+        <GlobalShipmentPoller />
+        <Routes>
+          <Route path="/" element={<Dashboard />} />
+          <Route path="/shipments/new" element={<NewShipment />} />
+          <Route path="/shipments/:id/connect" element={<ConnectPage />} />
+          <Route path="/shipments/:id/monitor" element={<MonitorPage />} />
+          <Route path="/shipments/:id/report" element={<ReportPage />} />
+        </Routes>
+      </div>
+    </NotificationProvider>
   )
+}
+
+// Polls all shipments every 5s and fires notifications when incidents are detected
+function GlobalShipmentPoller() {
+  const { addNotification } = useNotifications()
+  const knownState = useRef({}) // shipmentId → { incidentDetectedAt, status }
+  const location = useLocation()
+
+  useEffect(() => {
+    function poll() {
+      listShipments().then((shipments) => {
+        shipments.forEach((s) => {
+          const prev = knownState.current[s.shipmentId]
+          const currentlyViewingThis = location.pathname.includes(s.shipmentId)
+
+          if (prev) {
+            // Incident newly detected on a shipment we're not currently viewing
+            const incidentNew = s.incidentDetectedAt && !prev.incidentDetectedAt
+            if (incidentNew && !currentlyViewingThis) {
+              addNotification({
+                shipmentId: s.shipmentId,
+                productName: s.productName,
+                message: 'Incident detected — mishandling event recorded',
+                type: 'incident',
+              })
+            }
+          }
+
+          // Update known state
+          knownState.current[s.shipmentId] = {
+            incidentDetectedAt: s.incidentDetectedAt,
+            status: s.status,
+          }
+        })
+      }).catch(() => {})
+    }
+
+    poll()
+    const interval = setInterval(poll, 5000)
+    return () => clearInterval(interval)
+  }, [location.pathname, addNotification])
+
+  return null
 }
 
 function AppNav() {
   const location = useLocation()
   const isMonitor = location.pathname.includes('/monitor')
+  const isDashboard = location.pathname === '/'
 
   return (
     <nav className="nav">
@@ -33,7 +83,13 @@ function AppNav() {
           <span className="logo-text">AEGIS</span>
         </Link>
 
-        <div className="nav-status" style={{ marginLeft: 'auto' }}>
+        {!isDashboard && (
+          <Link to="/shipments/new" className="btn-primary" style={{ marginLeft: 'auto', padding: '0.4rem 0.9rem', fontSize: '0.75rem' }}>
+            + New Shipment
+          </Link>
+        )}
+
+        <div className="nav-status" style={{ marginLeft: isDashboard ? 'auto' : '0.75rem' }}>
           <span className="pulse-dot green" />
           <span className="mono" style={{ fontSize: '0.75rem', color: 'var(--teal)' }}>
             {isMonitor ? 'LIVE MONITORING' : 'SYSTEM ONLINE'}

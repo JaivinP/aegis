@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import { Link } from 'react-router-dom'
 import { listShipments } from '../api'
 
 const STATUS_STYLE = {
@@ -9,6 +9,8 @@ const STATUS_STYLE = {
   CONNECTING: { color: 'var(--amber)', bg: 'rgba(245,158,11,0.08)', border: 'rgba(245,158,11,0.25)' },
   CREATED:    { color: 'var(--text-muted)', bg: 'rgba(255,255,255,0.04)', border: 'var(--border)' },
 }
+
+const ACTIVE_STATUSES = new Set(['CREATED', 'CONNECTING', 'IN_TRANSIT'])
 
 function shipmentHref(s) {
   if (s.status === 'COMPLETED' || s.status === 'ESCALATED') return `/shipments/${s.shipmentId}/report`
@@ -34,7 +36,16 @@ export default function Dashboard() {
       .then(setShipments)
       .catch((e) => setError(e.message))
       .finally(() => setLoading(false))
+
+    // Poll every 5s to keep active cards up to date
+    const interval = setInterval(() => {
+      listShipments().then(setShipments).catch(() => {})
+    }, 5000)
+    return () => clearInterval(interval)
   }, [])
+
+  const active = shipments.filter((s) => ACTIVE_STATUSES.has(s.status))
+  const completed = shipments.filter((s) => !ACTIVE_STATUSES.has(s.status))
 
   return (
     <div className="page-content">
@@ -43,16 +54,14 @@ export default function Dashboard() {
           <div>
             <div className="section-label mono">AEGIS CONDITION INTELLIGENCE</div>
             <h1 className="page-title">Shipment Dashboard</h1>
-            <p className="page-sub">Monitor active shipments, review past deliveries, and start a new tracking session.</p>
+            <p className="page-sub">Monitor active shipments and review completed deliveries.</p>
           </div>
           <Link to="/shipments/new" className="btn-primary" style={{ whiteSpace: 'nowrap', alignSelf: 'flex-end' }}>
             + New Shipment
           </Link>
         </div>
 
-        {loading && (
-          <div className="db-loading mono">Loading shipments…</div>
-        )}
+        {loading && <div className="db-loading mono">Loading shipments…</div>}
 
         {error && (
           <div className="db-error">
@@ -72,12 +81,28 @@ export default function Dashboard() {
           </div>
         )}
 
-        {!loading && shipments.length > 0 && (
-          <div className="history-grid">
-            {shipments.map((s) => (
-              <ShipmentCard key={s.shipmentId} shipment={s} />
-            ))}
-          </div>
+        {!loading && active.length > 0 && (
+          <section className="dash-section">
+            <div className="dash-section-header">
+              <span className="mono dash-section-label">ACTIVE</span>
+              <span className="dash-section-count">{active.length}</span>
+            </div>
+            <div className="history-grid">
+              {active.map((s) => <ShipmentCard key={s.shipmentId} shipment={s} />)}
+            </div>
+          </section>
+        )}
+
+        {!loading && completed.length > 0 && (
+          <section className="dash-section">
+            <div className="dash-section-header">
+              <span className="mono dash-section-label">COMPLETED</span>
+              <span className="dash-section-count">{completed.length}</span>
+            </div>
+            <div className="history-grid">
+              {completed.map((s) => <ShipmentCard key={s.shipmentId} shipment={s} />)}
+            </div>
+          </section>
         )}
       </div>
     </div>
@@ -85,18 +110,30 @@ export default function Dashboard() {
 }
 
 function ShipmentCard({ shipment: s }) {
-  const style = STATUS_STYLE[s.status] || STATUS_STYLE.CREATED
+  const hasIncident = Boolean(s.incidentDetectedAt)
+  const style = hasIncident && s.status === 'IN_TRANSIT'
+    ? { color: 'var(--red)', bg: 'rgba(239,68,68,0.08)', border: 'rgba(239,68,68,0.35)' }
+    : STATUS_STYLE[s.status] || STATUS_STYLE.CREATED
   const href = shipmentHref(s)
 
   return (
-    <Link to={href} className="history-card">
+    <Link
+      to={href}
+      className={`history-card ${hasIncident && s.status === 'IN_TRANSIT' ? 'history-card--incident' : ''}`}
+    >
+      {hasIncident && s.status === 'IN_TRANSIT' && (
+        <div className="history-card-incident-banner mono">
+          ⚠ INCIDENT ACTIVE — IMMEDIATE ATTENTION REQUIRED
+        </div>
+      )}
+
       <div className="history-card-top">
         <span className="history-card-icon">{s.icon || '📦'}</span>
         <span
           className="history-card-status mono"
           style={{ color: style.color, background: style.bg, border: `1px solid ${style.border}` }}
         >
-          {s.status}
+          {hasIncident && s.status === 'IN_TRANSIT' ? 'INCIDENT' : s.status.replace('_', ' ')}
         </span>
       </div>
 
@@ -112,20 +149,37 @@ function ShipmentCard({ shipment: s }) {
           <span className="mono history-meta-label">DEST</span>
           <span className="mono history-meta-value">{s.destination}</span>
         </div>
+        {s.tempMin != null && s.tempMax != null && (
+          <div className="history-meta-row">
+            <span className="mono history-meta-label">TEMP RANGE</span>
+            <span className="mono history-meta-value" style={{ color: 'var(--teal)' }}>
+              {s.tempMin}°C – {s.tempMax}°C
+            </span>
+          </div>
+        )}
         {s.complianceFramework && (
           <div className="history-meta-row">
             <span className="mono history-meta-label">FRAMEWORK</span>
             <span className="mono history-meta-value" style={{ color: 'var(--text-dim)', fontSize: '0.62rem' }}>{s.complianceFramework}</span>
           </div>
         )}
-        <div className="history-meta-row">
-          <span className="mono history-meta-label">CREATED</span>
-          <span className="mono history-meta-value">{fmtDate(s.createdAt)}</span>
-        </div>
+        {hasIncident && (
+          <div className="history-meta-row">
+            <span className="mono history-meta-label">INCIDENT AT</span>
+            <span className="mono history-meta-value" style={{ color: 'var(--red)' }}>{fmtDate(s.incidentDetectedAt)}</span>
+          </div>
+        )}
+        {!hasIncident && (
+          <div className="history-meta-row">
+            <span className="mono history-meta-label">CREATED</span>
+            <span className="mono history-meta-value">{fmtDate(s.createdAt)}</span>
+          </div>
+        )}
       </div>
 
-      <div className="history-card-cta mono">
-        {s.status === 'IN_TRANSIT' ? 'Resume monitoring →' :
+      <div className="history-card-cta mono" style={{ color: hasIncident && s.status === 'IN_TRANSIT' ? 'var(--red)' : undefined }}>
+        {hasIncident && s.status === 'IN_TRANSIT' ? 'View incident →' :
+         s.status === 'IN_TRANSIT' ? 'Resume monitoring →' :
          s.status === 'COMPLETED' || s.status === 'ESCALATED' ? 'View report →' :
          'Continue →'}
       </div>
