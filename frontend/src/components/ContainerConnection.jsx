@@ -45,7 +45,10 @@ export default function ContainerConnection({ shipment, onComplete }) {
           <div className="section-label mono">CONTAINER INITIALIZATION</div>
           <h1 className="page-title">Connecting Aegis Container</h1>
           <div className="connect-shipment-badge mono">
-            {shipment.name.toUpperCase()} — {shipment.tempRange}
+            {(shipment.productName || shipment.name || 'SHIPMENT').toUpperCase()}
+            {shipment.tempMin != null && shipment.tempMax != null
+              ? ` — ${shipment.tempMin}°C – ${shipment.tempMax}°C`
+              : shipment.tempRange ? ` — ${shipment.tempRange}` : ''}
           </div>
         </div>
 
