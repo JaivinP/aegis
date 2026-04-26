@@ -1,4 +1,6 @@
 import time, os, random, statistics
+import math
+import requests
 from datetime import datetime
 from uuid import uuid4
 from dotenv import load_dotenv
@@ -29,24 +31,48 @@ def add_noise(val, std):
     return val + (random.random() - 0.5) * std
 
 def get_reading():
-    _state["temp"] = max(2, min(14,
-        add_noise(_state["temp"] + (4.1 - _state["temp"]) * 0.05, 0.3)))
-    _state["humidity"] = max(30, min(70,
-        add_noise(_state["humidity"] + (43 - _state["humidity"]) * 0.05, 2)))
-    _state["shock"] = random.uniform(0.1, 0.4) \
-        if random.random() < 0.04 else max(0.01, add_noise(0.02, 0.01))
-    _state["water"] = False
-    reading = {
-        "temperature": round(_state["temp"], 2),
-        "humidity": round(_state["humidity"], 1),
-        "shock": round(_state["shock"], 3),
-        "water_detected": _state["water"],
-        "timestamp": time.time()
-    }
-    _history.append(reading)
-    if len(_history) > 300:
-        _history.pop(0)
-    return reading
+    try:
+        response = requests.get(
+            os.getenv("BACKEND_URL", "http://34.41.16.247:8080"),
+            timeout=5
+        )
+        raw = response.json()
+
+        accel = raw.get("acceleration", {})
+        gforce = 0.0
+        if all(accel.get(k) is not None for k in ["x", "y", "z"]):
+            gforce = round(
+                math.sqrt(accel["x"]**2 + accel["y"]**2 + accel["z"]**2) / 9.81, 3)
+
+        reading = {
+            "temperature": raw.get("temperature") or 4.1,
+            "humidity": raw.get("humidity") or 43.0,
+            "shock": gforce,
+            "water_detected": (raw.get("water") or 0) > 50,
+            "timestamp": time.time()
+        }
+        _history.append(reading)
+        if len(_history) > 300:
+            _history.pop(0)
+        return reading
+
+    except Exception as e:
+        print(f"Server unreachable, using simulator: {e}")
+        _state["temp"] = max(2, min(14,
+            add_noise(_state["temp"] + (4.1 - _state["temp"]) * 0.05, 0.3)))
+        _state["humidity"] = max(30, min(70,
+            add_noise(_state["humidity"] + (43 - _state["humidity"]) * 0.05, 2)))
+        _state["shock"] = random.uniform(0.1, 0.4) \
+            if random.random() < 0.04 else max(0.01, add_noise(0.02, 0.01))
+        reading = {
+            "temperature": round(_state["temp"], 2),
+            "humidity": round(_state["humidity"], 1),
+            "shock": round(_state["shock"], 3),
+            "water_detected": False,
+            "timestamp": time.time()
+        }
+        _history.append(reading)
+        return reading
 
 def analyze():
     # Build up some history first

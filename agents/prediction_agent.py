@@ -1,5 +1,7 @@
 import time, os, random, statistics
 from datetime import datetime
+import math
+import requests
 from uuid import uuid4
 from dotenv import load_dotenv
 from uagents import Agent, Context, Protocol
@@ -28,16 +30,50 @@ def add_noise(val, std):
     return val + (random.random() - 0.5) * std
 
 def get_readings(n=30):
-    for _ in range(n):
-        _state["temp"] = max(2, min(14,
-            add_noise(_state["temp"] + (4.1 - _state["temp"]) * 0.05, 0.3)))
-        _state["humidity"] = max(30, min(70,
-            add_noise(_state["humidity"] + (43 - _state["humidity"]) * 0.05, 2)))
-        _history.append({
-            "temperature": round(_state["temp"], 2),
-            "humidity": round(_state["humidity"], 1),
+    try:
+        response = requests.get(
+            os.getenv("BACKEND_URL", "http://34.41.16.247:8080"),
+            timeout=5
+        )
+        raw = response.json()
+
+        accel = raw.get("acceleration", {})
+        gforce = 0.0
+        if all(accel.get(k) is not None for k in ["x", "y", "z"]):
+            gforce = round(
+                math.sqrt(accel["x"]**2 + accel["y"]**2 + accel["z"]**2) / 9.81, 3)
+
+        reading = {
+            "temperature": raw.get("temperature") or 4.1,
+            "humidity": raw.get("humidity") or 43.0,
+            "shock": gforce,
+            "water_detected": (raw.get("water") or 0) > 50,
             "timestamp": time.time()
-        })
+        }
+
+        for _ in range(n):
+            _history.append({
+                **reading,
+                "temperature": round(reading["temperature"] +
+                    (random.random() - 0.5) * 0.1, 2),
+                "timestamp": time.time()
+            })
+
+    except Exception as e:
+        print(f"Server unreachable, using simulator: {e}")
+        for _ in range(n):
+            _state["temp"] = max(2, min(14,
+                add_noise(_state["temp"] + (4.1 - _state["temp"]) * 0.05, 0.3)))
+            _state["humidity"] = max(30, min(70,
+                add_noise(_state["humidity"] + (43 - _state["humidity"]) * 0.05, 2)))
+            _history.append({
+                "temperature": round(_state["temp"], 2),
+                "humidity": round(_state["humidity"], 1),
+                "shock": 0.02,
+                "water_detected": False,
+                "timestamp": time.time()
+            })
+
     if len(_history) > 300:
         _history[:] = _history[-300:]
     return _history

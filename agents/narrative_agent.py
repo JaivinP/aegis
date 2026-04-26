@@ -1,4 +1,6 @@
 import time, os, statistics, random
+import math
+import requests
 from datetime import datetime
 from uuid import uuid4
 from dotenv import load_dotenv
@@ -36,20 +38,58 @@ def add_noise(val, std):
     return val + (random.random() - 0.5) * std
 
 def get_readings():
-    """Simulated sensor data — swap this for Liam's endpoint later"""
+    """Fetch real sensor data from Liam's server"""
+    try:
+        response = requests.get(
+            os.getenv("BACKEND_URL", "http://34.41.16.247:8080"),
+            timeout=5
+        )
+        raw = response.json()
+
+        accel = raw.get("acceleration", {})
+        gforce = 0.0
+        if all(accel.get(k) is not None for k in ["x", "y", "z"]):
+            gforce = round(
+                math.sqrt(accel["x"]**2 + accel["y"]**2 + accel["z"]**2) / 9.81, 3)
+
+        reading = {
+            "temperature": raw.get("temperature") or 4.1,
+            "humidity": raw.get("humidity") or 43.0,
+            "shock": gforce,
+            "water_detected": (raw.get("water") or 0) > 50,
+            "light": raw.get("light") or 0.0,
+            "timestamp": time.time()
+        }
+
+        # Return 60 copies with slight noise for context building
+        # until we have history endpoint
+        result = []
+        for i in range(60):
+            result.append({
+                **reading,
+                "temperature": round(reading["temperature"] + 
+                    (random.random() - 0.5) * 0.1, 2),
+                "timestamp": time.time() - (60 - i) * 2
+            })
+        return result
+
+    except Exception as e:
+        # Fall back to simulator if server unreachable
+        print(f"Server unreachable, using simulator: {e}")
+        return simulate_readings()
+
+def simulate_readings():
     history = []
-    t = state["temp"]
-    h = state["humidity"]
+    t, h = 4.1, 43.0
     for i in range(60):
-        t = max(2, min(14, add_noise(t + (4.1 - t) * 0.05, 0.3)))
-        h = max(30, min(70, add_noise(h + (43 - h) * 0.05, 2)))
+        t = max(2, min(14, t + (4.1 - t) * 0.05 + (random.random()-0.5)*0.3))
+        h = max(30, min(70, h + (43 - h) * 0.05 + (random.random()-0.5)*2))
         s = random.uniform(0.1, 0.4) if random.random() < 0.04 else 0.02
-        w = False
         history.append({
             "temperature": round(t, 2),
             "humidity": round(h, 1),
             "shock": round(s, 3),
-            "water_detected": w,
+            "water_detected": False,
             "timestamp": time.time() - (60 - i) * 2
         })
     return history
@@ -151,6 +191,65 @@ decision depends on your output. Keep total response under 150 words."""
     )
     return response.choices[0].message.content
 
+
+def generate_summary(readings):
+    temps = [r["temperature"] for r in readings]
+    humids = [r["humidity"] for r in readings]
+    shocks = [r["shock"] for r in readings]
+    
+    temp_mean = round(statistics.mean(temps), 2)
+    temp_max = round(max(temps), 2)
+    temp_min = round(min(temps), 2)
+    humid_mean = round(statistics.mean(humids), 1)
+    shock_max = round(max(shocks), 3)
+    water_events = sum(1 for r in readings if r["water_detected"])
+    shock_events = sum(1 for r in readings if r["shock"] > 1.5)
+    temp_breaches = sum(1 for r in readings if r["temperature"] > 8)
+    
+    # Overall integrity verdict
+    if temp_breaches > 5 or water_events > 0:
+        verdict = "FAIL — Cargo integrity compromised"
+        action = "Do not distribute. Quarantine and inspect immediately."
+    elif temp_breaches > 0 or shock_events > 2:
+        verdict = "REQUIRES INSPECTION — Anomalies detected"
+        action = "Physical inspection required before distribution."
+    else:
+        verdict = "PASS — Cargo integrity maintained"
+        action = "Cleared for distribution."
+
+    prompt = f"""You are Aegis, an autonomous shipment intelligence system.
+    
+Generate a concise end-of-shipment summary report for:
+Shipment: {os.getenv('SHIPMENT_ID', 'AGS-0042')}
+Cargo: {os.getenv('CARGO_TYPE', 'Insulin Glargine 100U/ML')}
+
+Journey statistics:
+- Duration: {len(readings) * 2} seconds of monitoring
+- Temperature: avg {temp_mean}°C, min {temp_min}°C, max {temp_max}°C
+- Humidity: avg {humid_mean}%
+- Max shock recorded: {shock_max}G
+- Shock events (>1.5G): {shock_events}
+- Temperature breaches (>8°C): {temp_breaches}
+- Water detection events: {water_events}
+- Overall verdict: {verdict}
+- Required action: {action}
+
+Write a professional 150-word end-of-shipment report covering:
+1. JOURNEY SUMMARY
+2. KEY STATISTICS  
+3. INCIDENTS (if any)
+4. INTEGRITY VERDICT
+5. NEXT STEPS
+
+Be specific, cite numbers, professional tone."""
+
+    response = llm.chat.completions.create(
+        model="asi1-mini",
+        max_tokens=400,
+        messages=[{"role": "user", "content": prompt}]
+    )
+    return response.choices[0].message.content
+
 # ─── CHAT PROTOCOL ───────────────────────────────────────────────────────────
 chat_proto = Protocol(name="AgentChatProtocol", version="0.3.0")
 
@@ -176,7 +275,11 @@ async def handle_message(ctx: Context, sender: str, msg: ChatMessage):
     context = build_context(readings)
 
     if not context:
-        response_text = "Insufficient sensor data to generate assessment. Please ensure the container sensors are active."
+        response_text = "Insufficient sensor data to generate assessment."
+    elif user_query and any(word in user_query.lower() for word in 
+                           ["summary", "end of shipment", "final report", 
+                            "journey complete", "arrived", "what happened"]):
+        response_text = generate_summary(readings)
     else:
         response_text = generate_narrative(context, user_query)
 
