@@ -20,6 +20,11 @@ for(let i = 0; i < 20; i++) {
     })
 }
 
+const corsHeaders = {
+  'Access-Control-Allow-Origin': '*',
+  'Content-Type': 'application/json',
+};
+
 Deno.serve({ port: 8080 }, async (req) => {
     if(req.method === 'POST') {
         const text = await req.text()
@@ -49,8 +54,8 @@ Deno.serve({ port: 8080 }, async (req) => {
         console.log(values)
         console.log(entry)
 
-        return new Response('POSTED DATA!');
+        return new Response('POSTED DATA!', { headers: corsHeaders });
     }
 
-    return new Response(JSON.stringify(data[data.length - 1]));
+    return new Response(JSON.stringify(data[data.length - 1]), { headers: corsHeaders });
 });
