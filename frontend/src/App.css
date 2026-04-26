@@ -805,6 +805,12 @@
   border-right: 1px solid rgba(0,200,180,0.08);
   min-height: 300px;
 }
+.kb-geo-real-map {
+  height: 100% !important;
+  min-height: 420px;
+  border: 0;
+  border-radius: 0;
+}
 .kb-geo-svg {
   width: 100%;
   height: 100%;
@@ -2181,7 +2187,161 @@
   background: rgba(0, 0, 0, 0.2);
   border: 1px solid var(--border);
   border-radius: 8px;
-  padding: 0.5rem 0.75rem;
+  padding: 0;
+  overflow: hidden;
+}
+
+.real-map {
+  position: relative;
+  width: 100%;
+  min-height: 220px;
+  overflow: hidden;
+  background: #0b1218;
+  border: 1px solid rgba(0,200,180,0.12);
+  border-radius: 8px;
+  isolation: isolate;
+}
+
+.real-map::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background:
+    linear-gradient(180deg, rgba(5,10,16,0.12), rgba(5,10,16,0.2)),
+    radial-gradient(circle at 50% 50%, transparent 40%, rgba(5,10,16,0.34));
+  z-index: 2;
+}
+
+.real-map-tiles {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+}
+
+.real-map-tiles img {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 256px;
+  height: 256px;
+  user-select: none;
+  filter: saturate(0.72) contrast(0.9) brightness(0.68);
+}
+
+.real-map-overlay {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 3;
+}
+
+.real-map-route-shadow {
+  fill: none;
+  stroke: rgba(0, 0, 0, 0.55);
+  stroke-width: 8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.real-map-route {
+  fill: none;
+  stroke: var(--teal);
+  stroke-width: 3;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-dasharray: 9 7;
+  filter: drop-shadow(0 0 8px rgba(0,200,180,0.5));
+}
+
+.real-map-checkpoint circle {
+  fill: var(--bg-card);
+  stroke: var(--teal);
+  stroke-width: 2;
+  filter: drop-shadow(0 0 5px rgba(0,200,180,0.45));
+}
+
+.real-map-checkpoint--origin circle {
+  fill: var(--teal);
+}
+
+.real-map-checkpoint--destination circle {
+  fill: var(--bg);
+  stroke-width: 2.5;
+}
+
+.real-map-checkpoint text {
+  fill: var(--text);
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10px;
+  paint-order: stroke;
+  stroke: rgba(5,10,16,0.9);
+  stroke-width: 3px;
+  stroke-linejoin: round;
+}
+
+.real-map-current-pulse {
+  fill: rgba(245, 158, 11, 0.18);
+  stroke: rgba(245, 158, 11, 0.42);
+  stroke-width: 1;
+}
+
+.real-map-current {
+  fill: var(--amber);
+  stroke: var(--bg);
+  stroke-width: 2;
+  filter: drop-shadow(0 0 8px rgba(245,158,11,0.6));
+}
+
+.real-map-summary {
+  position: absolute;
+  top: 0.7rem;
+  left: 0.7rem;
+  z-index: 4;
+  display: flex;
+  gap: 0.45rem;
+  flex-wrap: wrap;
+}
+
+.real-map-summary span {
+  padding: 0.22rem 0.42rem;
+  border: 1px solid rgba(0,200,180,0.2);
+  border-radius: 4px;
+  background: rgba(5,10,16,0.82);
+  color: var(--teal);
+  font-size: 0.58rem;
+}
+
+.real-map-attribution {
+  position: absolute;
+  right: 0.55rem;
+  bottom: 0.45rem;
+  z-index: 4;
+  padding: 0.18rem 0.35rem;
+  border-radius: 3px;
+  background: rgba(5,10,16,0.7);
+  color: rgba(255,255,255,0.58);
+  font-size: 0.52rem;
+  text-decoration: none;
+}
+
+.real-map-state {
+  position: absolute;
+  inset: 0;
+  z-index: 5;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+  color: var(--text-muted);
+  background: rgba(5,10,16,0.62);
+  text-align: center;
+  font-size: 0.72rem;
+}
+
+.real-map-state--error {
+  color: var(--amber);
 }
 
 .route-waypoints {

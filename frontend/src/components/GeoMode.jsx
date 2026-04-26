@@ -2,29 +2,7 @@ import { useState, useEffect, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useKeyboard } from '../context/KeyboardContext'
 import { listShipments } from '../api'
-
-const WAYPOINTS = [
-  { name: 'Los Angeles, CA', x: 80,  y: 280, pct: 0   },
-  { name: 'Ontario, CA',     x: 145, y: 270, pct: 22  },
-  { name: 'Riverside, CA',   x: 175, y: 295, pct: 42  },
-  { name: 'Indio, CA',       x: 235, y: 310, pct: 62  },
-  { name: 'Blythe, CA',      x: 310, y: 305, pct: 78  },
-  { name: 'Phoenix, AZ',     x: 430, y: 275, pct: 100 },
-]
-
-function lerp(a, b, t) { return a + (b - a) * t }
-
-function getPositionAtProgress(progress) {
-  const pct = Math.max(0, Math.min(100, progress))
-  for (let i = 0; i < WAYPOINTS.length - 1; i++) {
-    const a = WAYPOINTS[i], b = WAYPOINTS[i + 1]
-    if (pct >= a.pct && pct <= b.pct) {
-      const t = (pct - a.pct) / (b.pct - a.pct)
-      return { x: lerp(a.x, b.x, t), y: lerp(a.y, b.y, t) }
-    }
-  }
-  return { x: WAYPOINTS[WAYPOINTS.length - 1].x, y: WAYPOINTS[WAYPOINTS.length - 1].y }
-}
+import RealRouteMap from './RealRouteMap'
 
 const RISK_COLOR = { critical: '#ef4444', warn: '#f59e0b', ok: '#00c8b4' }
 
@@ -100,7 +78,7 @@ export default function GeoMode() {
 
   if (!geoModeOpen) return null
 
-  const routePoints = WAYPOINTS.map((w) => `${w.x},${w.y}`).join(' ')
+  const selectedShipment = shipments[selected]
 
   return (
     <div className="kb-backdrop kb-backdrop--dark" onClick={() => setGeoModeOpen(false)}>
@@ -116,54 +94,25 @@ export default function GeoMode() {
 
         <div className="kb-geo-body">
           <div className="kb-geo-map">
-            <svg viewBox="0 60 540 320" className="kb-geo-svg">
-              {[...Array(8)].map((_, i) => (
-                <line key={`h${i}`} x1="0" y1={80 + i * 40} x2="540" y2={80 + i * 40}
-                  stroke="rgba(0,200,180,0.04)" strokeWidth="1" />
-              ))}
-              {[...Array(12)].map((_, i) => (
-                <line key={`v${i}`} x1={i * 50} y1="60" x2={i * 50} y2="380"
-                  stroke="rgba(0,200,180,0.04)" strokeWidth="1" />
-              ))}
-
-              <polyline
-                points={routePoints}
-                fill="none"
-                stroke="rgba(0,200,180,0.25)"
-                strokeWidth="2"
-                strokeDasharray="6 4"
-              />
-
-              {WAYPOINTS.map((w) => (
-                <g key={w.name}>
-                  <circle cx={w.x} cy={w.y} r={3} fill="rgba(0,200,180,0.4)" />
-                  <text x={w.x} y={w.y - 8} fill="rgba(0,200,180,0.5)"
-                    fontSize="7" textAnchor="middle" fontFamily="JetBrains Mono, monospace">
-                    {w.name.split(',')[0].toUpperCase()}
-                  </text>
-                </g>
-              ))}
-
-              {!loading && shipments.map((s, i) => {
-                const pos = getPositionAtProgress(s.progress)
-                const color = RISK_COLOR[s.risk]
-                const isSelected = i === selected
-                const yOffset = i * 14
-                return (
-                  <g key={s.id} style={{ cursor: 'pointer' }} onClick={() => setSelected(i)}>
-                    {isSelected && (
-                      <circle cx={pos.x} cy={pos.y + yOffset} r={14} fill={`${color}20`} stroke={color} strokeWidth="1" />
-                    )}
-                    <circle cx={pos.x} cy={pos.y + yOffset} r={6} fill={color} />
-                    <text x={pos.x + 10} y={pos.y + yOffset + 4} fill={color}
-                      fontSize="8" fontFamily="JetBrains Mono, monospace" fontWeight="bold">
-                      {s.id}
-                    </text>
-                  </g>
-                )
-              })}
-            </svg>
-            <div className="kb-geo-map-label mono">LA → PHOENIX CORRIDOR</div>
+            {selectedShipment ? (
+              <>
+                <RealRouteMap
+                  origin={selectedShipment.origin}
+                  destination={selectedShipment.destination}
+                  progress={selectedShipment.progress}
+                  height={520}
+                  compact
+                  className="kb-geo-real-map"
+                />
+                <div className="kb-geo-map-label mono">
+                  {selectedShipment.origin} → {selectedShipment.destination}
+                </div>
+              </>
+            ) : (
+              <div className="real-map-state mono">
+                {loading ? 'Loading active routes…' : 'No active shipments'}
+              </div>
+            )}
           </div>
 
           <div className="kb-geo-list">
