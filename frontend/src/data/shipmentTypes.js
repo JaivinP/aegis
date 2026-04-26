@@ -1,4 +1,22 @@
 export const SHIPMENT_TYPES = [
+    {
+    id: 'insulin',
+    name: 'Insulin',
+    icon: '💉',
+    tempRange: '20°C - 24°C',
+    tempMin: 20,
+    tempMax: 23,
+    tempNominal: 20,
+    humidityRange: '30% – 50%',
+    humidityMin: 30,
+    humidityMax: 50,
+    humidityNominal: 38,
+    riskLabel: 'HIGH COMPLIANCE',
+    riskColor: 'amber',
+    description:
+      'Insulin degrades rapidly above 8°C and loses efficacy if frozen. FDA 21 CFR Part 211 compliance required. Chain-of-custody documentation mandatory for every leg of the journey.',
+    complianceFramework: 'FDA 21 CFR Part 211',
+  },
   {
     id: 'insulin',
     name: 'Insulin',
