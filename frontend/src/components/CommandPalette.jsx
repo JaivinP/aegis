@@ -3,25 +3,29 @@ import { useNavigate } from 'react-router-dom'
 import { useKeyboard } from '../context/KeyboardContext'
 
 const COMMANDS = [
-  { id: 'mission-control', icon: '⬛', label: 'Mission Control', desc: 'All active shipments grid', category: 'Navigation', action: 'mission-control' },
-  { id: 'sensor-matrix',   icon: '◫',  label: 'Sensor Matrix',   desc: 'Live sensor wall view',     category: 'Navigation', action: 'sensor-matrix' },
-  { id: 'geo-mode',        icon: '◎',  label: 'Geo Mode',        desc: 'Fullscreen map view',       category: 'Navigation', action: 'geo-mode' },
-  { id: 'ai-query',        icon: '◈',  label: 'Ask Aegis',       desc: 'AI operational intelligence', category: 'AI', action: 'ai-query' },
-  { id: 'report',          icon: '▤',  label: 'Open Report',     desc: 'Delivery report drawer',    category: 'Shipment', action: 'report' },
-  { id: 'incident-zoom',   icon: '◉',  label: 'Incident Zoom',   desc: 'Detailed incident analysis', category: 'Incident', action: 'incident-zoom' },
-  { id: 'trigger-incident',icon: '⚡', label: 'Inject Sensor Event', desc: 'Simulate mishandling incident', category: 'Demo', action: 'trigger-incident' },
-  { id: 'reset-nominal',   icon: '↺',  label: 'Return to Nominal', desc: 'Reset all sensors to normal', category: 'Demo', action: 'reset-nominal' },
-  { id: 'end-delivery',    icon: '✓',  label: 'Complete Delivery', desc: 'End delivery and generate report', category: 'Demo', action: 'end-delivery' },
-  { id: 'critical',        icon: '⚠',  label: 'Filter: Critical', desc: 'Show only critical shipments', category: 'Filter', action: 'critical' },
-  { id: 'dashboard',       icon: '◧',  label: 'Go to Dashboard', desc: 'Return to shipment dashboard', category: 'Navigation', action: 'dashboard' },
+  { id: 'mission-control',  icon: '⬛', label: 'Mission Control',    desc: 'All shipments grid',           category: 'Navigation' },
+  { id: 'geo-mode',         icon: '◎',  label: 'Geo Mode',           desc: 'Fullscreen route map',         category: 'Navigation' },
+  { id: 'sensor-matrix',    icon: '◫',  label: 'Sensor Matrix',      desc: 'Live sensor wall view',        category: 'Navigation' },
+  { id: 'dashboard',        icon: '◧',  label: 'Go to Dashboard',    desc: 'Return to shipment dashboard', category: 'Navigation' },
+  { id: 'ai-query',         icon: '◈',  label: 'Ask Aegis',          desc: 'AI operational intelligence',  category: 'AI' },
+  { id: 'report',           icon: '▤',  label: 'Open Report',        desc: 'Delivery report drawer',       category: 'Shipment' },
+  { id: 'incident-zoom',    icon: '◉',  label: 'Incident Zoom',      desc: 'Detailed incident analysis',   category: 'Incident' },
+  { id: 'trigger-incident', icon: '⚡', label: 'Inject Sensor Event', desc: 'Simulate mishandling',        category: 'Demo' },
+  { id: 'reset-nominal',    icon: '↺',  label: 'Return to Nominal',  desc: 'Reset all sensors to normal',  category: 'Demo' },
+  { id: 'end-delivery',     icon: '✓',  label: 'Complete Delivery',  desc: 'End delivery and report',      category: 'Demo' },
 ]
 
-const CATEGORY_ORDER = ['Navigation', 'AI', 'Shipment', 'Incident', 'Demo', 'Filter']
+const CATEGORY_ORDER = ['Navigation', 'AI', 'Shipment', 'Incident', 'Demo']
 
 export default function CommandPalette() {
-  const { commandPaletteOpen, setCommandPaletteOpen, setAiQueryOpen,
-          setMissionControlOpen, setGeoModeOpen, setSensorMatrixOpen,
-          setReportDrawerOpen, setIncidentZoomOpen, dashboardCtx } = useKeyboard()
+  const kb = useKeyboard()
+  const {
+    commandPaletteOpen, setCommandPaletteOpen,
+    setAiQueryOpen, setMissionControlOpen, setGeoModeOpen,
+    setSensorMatrixOpen, setReportDrawerOpen, setIncidentZoomOpen,
+    dashboardCtx,
+  } = kb
+
   const [query, setQuery] = useState('')
   const [selectedIdx, setSelectedIdx] = useState(0)
   const inputRef = useRef(null)
@@ -45,7 +49,6 @@ export default function CommandPalette() {
       )
     : COMMANDS
 
-  // Group by category
   const grouped = CATEGORY_ORDER.reduce((acc, cat) => {
     const items = filtered.filter((c) => c.category === cat)
     if (items.length) acc.push({ cat, items })
@@ -54,21 +57,27 @@ export default function CommandPalette() {
 
   const flat = grouped.flatMap((g) => g.items)
 
+  // Close palette first, then open the target in the next tick so the
+  // global keyboard handler sees commandPaletteOpen=false and doesn't interfere.
   function execute(cmd) {
     setCommandPaletteOpen(false)
-    switch (cmd.action) {
-      case 'mission-control':   setMissionControlOpen(true);   break
-      case 'sensor-matrix':     setSensorMatrixOpen(true);     break
-      case 'geo-mode':          setGeoModeOpen(true);          break
-      case 'ai-query':          setAiQueryOpen(true);          break
-      case 'report':            setReportDrawerOpen(true);     break
-      case 'incident-zoom':     setIncidentZoomOpen(true);     break
-      case 'trigger-incident':  dashboardCtx?.triggerIncident?.(); break
-      case 'reset-nominal':     dashboardCtx?.resetToNominal?.();  break
-      case 'end-delivery':      dashboardCtx?.endDelivery?.();     break
-      case 'dashboard':         navigate('/');                 break
-      default: break
-    }
+    setTimeout(() => {
+      switch (cmd.id) {
+        case 'mission-control':   setMissionControlOpen(true); break
+        case 'geo-mode':          setGeoModeOpen(true);        break
+        case 'sensor-matrix':     setSensorMatrixOpen(true);   break
+        case 'dashboard':         navigate('/');               break
+        case 'ai-query':          setAiQueryOpen(true);        break
+        case 'report':            setReportDrawerOpen(true);   break
+        case 'incident-zoom':
+          if (dashboardCtx?.incidentActiveRef?.current) setIncidentZoomOpen(true)
+          break
+        case 'trigger-incident':  dashboardCtx?.triggerIncident?.();  break
+        case 'reset-nominal':     dashboardCtx?.resetToNominal?.();   break
+        case 'end-delivery':      dashboardCtx?.endDelivery?.();      break
+        default: break
+      }
+    }, 0)
   }
 
   function onKeyDown(e) {
@@ -97,12 +106,13 @@ export default function CommandPalette() {
             value={query}
             onChange={(e) => { setQuery(e.target.value); setSelectedIdx(0) }}
             onKeyDown={onKeyDown}
-            placeholder="Type a command or search..."
+            placeholder="Type a command or search…"
             autoComplete="off"
             spellCheck={false}
           />
           <kbd className="kb-key">esc</kbd>
         </div>
+
         <div className="kb-palette-results">
           {grouped.length === 0 && (
             <div className="kb-palette-empty mono">No commands found</div>
@@ -112,23 +122,25 @@ export default function CommandPalette() {
               <div className="kb-palette-category mono">{cat}</div>
               {items.map((cmd) => {
                 const idx = flatIdx++
+                const isActive = idx === selectedIdx
                 return (
                   <button
                     key={cmd.id}
-                    className={`kb-palette-row ${idx === selectedIdx ? 'kb-palette-row--active' : ''}`}
+                    className={`kb-palette-row${isActive ? ' kb-palette-row--active' : ''}`}
                     onClick={() => execute(cmd)}
                     onMouseEnter={() => setSelectedIdx(idx)}
                   >
                     <span className="kb-palette-icon">{cmd.icon}</span>
                     <span className="kb-palette-label">{cmd.label}</span>
                     <span className="kb-palette-desc">{cmd.desc}</span>
-                    {idx === selectedIdx && <kbd className="kb-key kb-key--sm">enter</kbd>}
+                    {isActive && <kbd className="kb-key kb-key--sm">enter</kbd>}
                   </button>
                 )
               })}
             </div>
           ))}
         </div>
+
         <div className="kb-palette-footer mono">
           <span><kbd className="kb-key kb-key--xs">↑</kbd><kbd className="kb-key kb-key--xs">↓</kbd> navigate</span>
           <span><kbd className="kb-key kb-key--xs">enter</kbd> select</span>
