@@ -74,6 +74,11 @@ function getLiveAnomalyReasons(liveData, shipment) {
   const humidity = Number(liveData.humidity)
   const shockDetected = Number(liveData.shockDetected)
   const water = Number(liveData.water)
+  const shock = Math.sqrt(Math.pow(liveData.acceleration.x, 2) + Math.pow(liveData.acceleration.y, 2) + Math.pow(liveData.acceleration.z, 2))
+
+    if(shock > 4) {
+        reasons.push(`Dangeroud movement detected`)
+    }
 
   if (Number.isFinite(temperature) && (temperature < shipment.tempMin || temperature > shipment.tempMax)) {
     reasons.push(`Temperature out of range: ${temperature.toFixed(1)}°C (safe: ${shipment.tempMin}–${shipment.tempMax}°C)`)
@@ -595,7 +600,7 @@ export default function MonitoringDashboard({ shipment: rawShipment, shipmentId:
             </button>
           )} */}
           <button className="btn-end-delivery" onClick={handleEndDelivery}>
-            Complete Delivery <KeyboardHint keys={['⇧', 'E']} dim />
+            Complete Delivery
           </button>
         </div>
       </div>
