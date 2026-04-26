@@ -15,6 +15,41 @@ export function KeyboardProvider({ children }) {
   // Set by MonitoringDashboard so overlays can read live state + call callbacks
   const [dashboardCtx, setDashboardCtx] = useState(null)
 
+  function closeAll() {
+    setIncidentZoomOpen(false)
+    setSensorMatrixOpen(false)
+    setGeoModeOpen(false)
+    setMissionControlOpen(false)
+    setReportDrawerOpen(false)
+    setAiQueryOpen(false)
+    setCommandPaletteOpen(false)
+    setShortcutOverlayOpen(false)
+  }
+
+  function openExclusive(view) {
+    closeAll()
+
+    switch (view) {
+      case 'command-palette': setCommandPaletteOpen(true); break
+      case 'ai-query':        setAiQueryOpen(true);        break
+      case 'mission-control': setMissionControlOpen(true); break
+      case 'shortcut-overlay':setShortcutOverlayOpen(true);break
+      case 'geo-mode':        setGeoModeOpen(true);        break
+      case 'sensor-matrix':   setSensorMatrixOpen(true);   break
+      case 'report-drawer':   setReportDrawerOpen(true);   break
+      case 'incident-zoom':   setIncidentZoomOpen(true);   break
+      default: break
+    }
+  }
+
+  function toggleExclusive(view, isOpen) {
+    if (isOpen) {
+      closeAll()
+    } else {
+      openExclusive(view)
+    }
+  }
+
   function closeTopmost() {
     if (incidentZoomOpen)   { setIncidentZoomOpen(false);   return }
     if (sensorMatrixOpen)   { setSensorMatrixOpen(false);   return }
@@ -37,6 +72,9 @@ export function KeyboardProvider({ children }) {
       reportDrawerOpen, setReportDrawerOpen,
       incidentZoomOpen, setIncidentZoomOpen,
       dashboardCtx, setDashboardCtx,
+      closeAll,
+      openExclusive,
+      toggleExclusive,
       closeTopmost,
     }}>
       {children}
