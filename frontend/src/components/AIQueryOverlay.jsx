@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect } from 'react'
 import { useKeyboard } from '../context/KeyboardContext'
+import { callNarrativeAgent } from '../api'
 
 const EXAMPLE_QUESTIONS = [
   'Why was this shipment flagged?',
@@ -9,50 +10,110 @@ const EXAMPLE_QUESTIONS = [
   'Summarize the incident timeline.',
 ]
 
-function generateResponse(question, ctx) {
-  const q = question.toLowerCase()
-  const id = ctx?.shipmentId || 'this shipment'
-  const sensors = ctx?.sensorsRef?.current
-  const analysis = ctx?.analysisRef?.current
-  const incident = ctx?.incidentActiveRef?.current
+function buildPayload(question, ctx) {
+  const shipment = ctx?.shipment || {}
+  const sensors = ctx?.sensorsRef?.current || {}
+  const analysis = ctx?.analysisRef?.current || {}
+  const timeline = ctx?.timelineRef?.current || []
+  const incidentActive = ctx?.incidentActiveRef?.current || false
 
-  if (q.includes('flag') || q.includes('why')) {
-    if (incident && analysis?.sealBreachConfidence > 50) {
-      return `Shipment ${id} was flagged because two clustered shock events were followed by a humidity surge of +${sensors ? Math.round(sensors.humidity - (ctx?.shipment?.humidityNominal || 38)) : 17}% and accelerated warming above the safe threshold. This multi-sensor correlation pattern is consistent with seal compromise after physical impact. Seal breach confidence is ${analysis.sealBreachConfidence?.toFixed(0) || 87}%, tampering confidence is ${analysis.tamperingConfidence?.toFixed(0) || 74}%, and product viability has dropped to ${analysis.viabilityScore?.toFixed(0) || 71}%.`
-    }
-    return `Shipment ${id} is currently operating within normal parameters. No anomalies have been detected. All sensor readings are within their configured safe ranges and the cold-chain integrity is confirmed intact.`
+  return {
+    query: question,
+    shipmentId: ctx?.shipmentId,
+    shipment,
+    currentSensors: sensors,
+    thresholds: {
+      tempMin: shipment.tempMin,
+      tempMax: shipment.tempMax,
+      humidityMin: shipment.humidityMin,
+      humidityMax: shipment.humidityMax,
+    },
+    route: {
+      origin: shipment.origin,
+      destination: shipment.destination,
+      currentLocation: sensors.location,
+      routeProgress: sensors.routeProgress,
+    },
+    timeline,
+    incident: incidentActive ? { active: true, ...analysis } : { active: false },
+  }
+}
+
+const CLASSIFICATION_COLORS = {
+  NOMINAL:    { bg: 'rgba(110,169,122,0.15)', text: '#6ea97a', border: 'rgba(110,169,122,0.4)' },
+  ANOMALY:    { bg: 'rgba(230,190,80,0.15)',  text: '#e6be50', border: 'rgba(230,190,80,0.4)' },
+  NEGLIGENCE: { bg: 'rgba(230,140,50,0.15)',  text: '#e68c32', border: 'rgba(230,140,50,0.4)' },
+  TAMPERING:  { bg: 'rgba(220,80,80,0.15)',   text: '#dc5050', border: 'rgba(220,80,80,0.4)' },
+  CRITICAL:   { bg: 'rgba(220,60,60,0.18)',   text: '#e03030', border: 'rgba(220,60,60,0.5)' },
+}
+
+function parseResponse(text) {
+  const sections = {}
+  const keys = ['CLASSIFICATION', 'CONFIDENCE', 'ASSESSMENT', 'COMPETING HYPOTHESIS', 'RECOMMENDED ACTION', 'PREDICTION']
+  for (let i = 0; i < keys.length; i++) {
+    const key = keys[i]
+    const next = keys[i + 1]
+    const start = text.indexOf(key + ':')
+    if (start === -1) continue
+    const valueStart = start + key.length + 1
+    const end = next ? text.indexOf(next + ':') : text.length
+    sections[key] = text.slice(valueStart, end !== -1 ? end : text.length).trim()
+  }
+  return Object.keys(sections).length > 0 ? sections : null
+}
+
+function FailsafeResponse({ text }) {
+  const parsed = parseResponse(text)
+
+  if (!parsed) {
+    return (
+      <div className="kb-ai-response">
+        <div className="kb-ai-response-label mono">FAILSAFE ANALYSIS</div>
+        <p className="kb-ai-response-text">{text}</p>
+      </div>
+    )
   }
 
-  if (q.includes('temperature') || q.includes('temp')) {
-    if (incident) {
-      const temp = sensors?.temperature?.toFixed(1) || 'elevated'
-      return `The temperature spike on shipment ${id} was triggered approximately 1.5 seconds after the initial shock event at ${temp}°C. The rapid rise pattern — consistent with warm external air exposure — suggests the container seal was compromised by physical impact, allowing ambient heat ingress. This is distinct from refrigeration failure, which produces a slower, more gradual curve.`
-    }
-    return `Temperature on shipment ${id} is currently nominal and stable. The sensor is reporting within the configured safe range with no abnormal drift detected.`
-  }
+  const cls = parsed['CLASSIFICATION']?.split(/[\s/]/)[0]?.trim().toUpperCase()
+  const clsStyle = CLASSIFICATION_COLORS[cls] || CLASSIFICATION_COLORS.NOMINAL
 
-  if (q.includes('tamper') || q.includes('negligen') || q.includes('more likely')) {
-    if (incident) {
-      return `Based on the sensor evidence, tampering probability is ${analysis?.tamperingConfidence?.toFixed(0) || 74}% and negligence is ${analysis?.negligenceConfidence?.toFixed(0) || 63}%. The shock-first sequence — impact preceding humidity and temperature rises — is more consistent with deliberate mishandling or drop events than with passive refrigeration failure. However, the pattern does not conclusively rule out accidental mishandling by a logistics handler.`
-    }
-    return `No incident is currently active on this shipment. Both tampering and negligence confidence scores are within normal bounds. Continue standard monitoring.`
-  }
+  return (
+    <div className="kb-ai-response kb-ai-response--parsed">
+      <div className="kb-ai-response-label mono">FAILSAFE ANALYSIS</div>
 
-  if (q.includes('operator') || q.includes('next') || q.includes('action') || q.includes('do')) {
-    if (incident) {
-      return `Recommended operator actions in order of priority: (1) Immediately quarantine the shipment and halt distribution. (2) Generate an FDA cold-chain deviation report — the temperature excursion duration must be documented. (3) Notify the receiving pharmacy of the likely viability impact. (4) Preserve the container and sensor logs as chain-of-custody evidence. (5) Initiate insurance claim if applicable. Press R to open the report drawer.`
-    }
-    return `Shipment ${id} is proceeding normally. No operator action is required at this time. Continue monitoring and maintain standard cold-chain procedures through delivery.`
-  }
+      {cls && (
+        <div className="kb-ai-row kb-ai-classification-row">
+          <span
+            className="kb-ai-badge"
+            style={{ background: clsStyle.bg, color: clsStyle.text, border: `1px solid ${clsStyle.border}` }}
+          >
+            {cls}
+          </span>
+          {parsed['CONFIDENCE'] && (
+            <span className="kb-ai-confidence mono">{parsed['CONFIDENCE']}</span>
+          )}
+        </div>
+      )}
 
-  if (q.includes('summar') || q.includes('timeline') || q.includes('incident')) {
-    if (incident) {
-      return `Incident summary for shipment ${id}: A 3.8g impact shock was detected, immediately followed by water exposure and seal compromise. Within 1.5 seconds, temperature began rising above the ${ctx?.shipment?.tempMax || 8}°C threshold and humidity spiked above safe range. The Narrative Agent classified this as a CRITICAL multi-sensor anomaly. Viability score has dropped from 97.8% to ${analysis?.viabilityScore?.toFixed(1) || 71.2}%. Degradation risk is at ${analysis?.degradationRisk?.toFixed(1) || 31.4}%.`
-    }
-    return `No active incidents to summarize for shipment ${id}. All timeline events are nominal — container connected, route tracking active, sensors reporting normal readings.`
-  }
+      {parsed['ASSESSMENT'] && (
+        <p className="kb-ai-section-text">{parsed['ASSESSMENT']}</p>
+      )}
 
-  return `Failsafe has analyzed your query regarding shipment ${id}. Current system status is ${analysis?.status || 'NOMINAL'} with viability at ${analysis?.viabilityScore?.toFixed(1) || '97.8'}%. ${incident ? 'An active incident requires operator attention. Use R to open the report drawer or Z to view incident details.' : 'No anomalies detected. All sensors are within configured safe parameters.'}`
+      {parsed['RECOMMENDED ACTION'] && (
+        <div className="kb-ai-action-row">
+          <span className="kb-ai-action-label mono">ACTION</span>
+          <span className="kb-ai-action-text">{parsed['RECOMMENDED ACTION']}</span>
+        </div>
+      )}
+
+      {parsed['PREDICTION'] && (
+        <div className="kb-ai-prediction-row">
+          <span className="kb-ai-prediction-label mono">15 MIN</span>
+          <span className="kb-ai-prediction-text">{parsed['PREDICTION']}</span>
+        </div>
+      )}
+    </div>
+  )
 }
 
 export default function AIQueryOverlay() {
@@ -73,14 +134,19 @@ export default function AIQueryOverlay() {
 
   if (!aiQueryOpen) return null
 
-  function submit() {
+  async function submit() {
     if (!question.trim()) return
     setLoading(true)
     setResponse(null)
-    setTimeout(() => {
-      setResponse(generateResponse(question, dashboardCtx))
+    try {
+      const payload = buildPayload(question, dashboardCtx)
+      const result = await callNarrativeAgent(payload)
+      setResponse(result.text || 'No response from Failsafe agent.')
+    } catch (err) {
+      setResponse(`Failsafe agent unavailable: ${err.message}`)
+    } finally {
       setLoading(false)
-    }, 900)
+    }
   }
 
   function onKeyDown(e) {
@@ -140,12 +206,7 @@ export default function AIQueryOverlay() {
           </div>
         )}
 
-        {response && (
-          <div className="kb-ai-response">
-            <div className="kb-ai-response-label mono">FAILSAFE ANALYSIS</div>
-            <p className="kb-ai-response-text">{response}</p>
-          </div>
-        )}
+        {response && <FailsafeResponse text={response} />}
 
         <div className="kb-ai-footer mono">
           <span><kbd className="kb-key kb-key--xs">enter</kbd> submit</span>
