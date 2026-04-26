@@ -5,6 +5,7 @@ import RoutePanel from './RoutePanel'
 import TimelinePanel from './TimelinePanel'
 import SensorCharts from './SensorCharts'
 import PhotoRequestPanel from './PhotoRequestPanel'
+import ActiveShipmentSwitcher from './ActiveShipmentSwitcher'
 import { addEvent, updateShipment } from '../api'
 
 function postEvent(shipmentId, label, type, severity, time) {
@@ -232,6 +233,7 @@ export default function MonitoringDashboard({ shipment: rawShipment, shipmentId:
           </div>
         </div>
         <div className="dashboard-controls">
+          <ActiveShipmentSwitcher currentShipmentId={shipmentId} />
           {!incidentActive ? (
             <button className="btn-incident" onClick={triggerIncident}>
               ⚡ Simulate Mishandling Incident
