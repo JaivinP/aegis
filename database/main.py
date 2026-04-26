@@ -56,6 +56,20 @@ async def health_check():
 # --- Agent bridge ---
 
 
+@app.post("/agents/voice/stop")
+async def stop_voice():
+    import subprocess
+    killed = False
+    for proc in ("afplay", "ffplay", "mpg123"):
+        try:
+            result = subprocess.run(["pkill", "-x", proc], capture_output=True)
+            if result.returncode == 0:
+                killed = True
+        except FileNotFoundError:
+            pass
+    return {"ok": True, "killed": killed}
+
+
 @app.post("/agents/narrative/analyze")
 async def analyze_with_narrative_agent(payload: Dict[str, Any]):
     try:
