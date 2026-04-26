@@ -10,6 +10,7 @@ import { addEvent, updateShipment } from '../api'
 import {
   createNarrativeIncidentOutput,
 } from '../data/agentOutputs'
+import { useLiveData } from '../data/liveData'
 
 function postEvent(shipmentId, label, type, severity, time) {
   addEvent(shipmentId, {
@@ -88,7 +89,9 @@ function normalizeShipment(s) {
 }
 
 export default function MonitoringDashboard({ shipment: rawShipment, shipmentId: propShipmentId, onEndDelivery }) {
-  const shipment = normalizeShipment(rawShipment)
+    const { data: liveData } = useLiveData()
+  
+    const shipment = normalizeShipment(rawShipment)
   const generatedId = useRef(`AGS-${Math.floor(Math.random() * 9000) + 1000}`).current
   const shipmentId = propShipmentId || generatedId
   const [sensors, setSensors] = useState(() => getNominalSensors(shipment))
@@ -295,7 +298,7 @@ export default function MonitoringDashboard({ shipment: rawShipment, shipmentId:
 
         {/* ── Main grid ── */}
         <div className="dashboard-grid">
-          <SensorPanel sensors={sensors} shipment={shipment} />
+          <SensorPanel sensors={{...sensors, temperature: liveData.temperature, humidity: liveData.humidity}} shipment={shipment} />
           <AIAnalysisPanel
             activeEvent={activeAgentEvent}
             log={agentLog}
