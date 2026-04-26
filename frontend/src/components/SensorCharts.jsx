@@ -15,7 +15,7 @@ function fmtTime(ts) {
 }
 
 const TOOLTIP_STYLE = {
-  background: '#0a1520',
+  background: '#fbfff6',
   border: '1px solid rgba(255,255,255,0.1)',
   borderRadius: 6,
   fontSize: '0.72rem',
