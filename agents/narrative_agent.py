@@ -1,3 +1,4 @@
+import asyncio
 import time, os, statistics, random
 import math
 import requests
@@ -30,6 +31,10 @@ agent = Agent(
 )
 
 print(f"Narrative Agent address: {agent.address}")
+
+monitor_address = "agent1q2x5fy2xs550nxepfhmtflruwg659m80kghkrztp37m3dapu8fa27s4z89v"
+prediction_address = "agent1qwxc6vt44mls54tk3ms7zyrtupffe5hsmlw2lcczgnz2fxna240zghzm5ue"
+response_address = "agent1qtjez6jgrqzghvpruhvfewwc2rp3l5au5du2lk3glyqf6fa7tnx5vca5lrt"
 
 # ─── SIMULATOR (replace with Liam's URL later) ───────────────────────────────
 state = {"temp": 4.1, "humidity": 43.0, "shock": 0.02, "water": False}
@@ -151,6 +156,36 @@ def build_context(readings):
     }
 
 # ─── NARRATIVE GENERATOR ─────────────────────────────────────────────────────
+async def query_agent(agent_address: str, question: str, ctx: Context) -> str:
+    try:
+        response_text = ""
+        response_event = asyncio.Event()
+        
+        msg_id = uuid4()
+        
+        @agent.on_message(model=ChatMessage)
+        async def receive_response(ctx: Context, sender: str, msg: ChatMessage):
+            nonlocal response_text
+            if sender == agent_address:
+                for item in msg.content:
+                    if isinstance(item, TextContent):
+                        response_text = item.text
+                response_event.set()
+        
+        await ctx.send(agent_address, ChatMessage(
+            timestamp=datetime.utcnow(),
+            msg_id=msg_id,
+            content=[TextContent(type="text", text=question)]
+        ))
+        
+        await asyncio.wait_for(response_event.wait(), timeout=10.0)
+        return response_text
+        
+    except asyncio.TimeoutError:
+        return "Agent timeout"
+    except Exception as e:
+        return f"Agent error: {e}"
+
 def generate_narrative(context, user_query=None):
     prompt = f"""You are Stability, an autonomous pharmaceutical and food shipment intelligence system.
 
@@ -255,35 +290,61 @@ chat_proto = Protocol(name="AgentChatProtocol", version="0.3.0")
 
 @chat_proto.on_message(model=ChatMessage)
 async def handle_message(ctx: Context, sender: str, msg: ChatMessage):
-    # Step 1 — acknowledge immediately
     await ctx.send(sender, ChatAcknowledgement(
         timestamp=msg.timestamp,
         acknowledged_msg_id=msg.msg_id
     ))
 
-    # Step 2 — extract query
-    user_query = None
+    user_query = ""
     for item in msg.content:
         if isinstance(item, TextContent):
             user_query = item.text
             break
 
-    ctx.logger.info(f"Query received: {user_query}")
+    ctx.logger.info(f"Orchestrating agents for query: {user_query}")
 
-    # Step 3 — get sensor data and build context
     readings = get_readings()
     context = build_context(readings)
 
-    if not context:
-        response_text = "Insufficient sensor data to generate assessment."
-    elif user_query and any(word in user_query.lower() for word in 
-                           ["summary", "end of shipment", "final report", 
-                            "journey complete", "arrived", "what happened"]):
+    monitor_data = await query_agent(
+        monitor_address,
+        "Give me current sensor status and anomaly scores",
+        ctx
+    )
+
+    prediction_data = await query_agent(
+        prediction_address,
+        "What is the temperature forecast for the next 15 minutes",
+        ctx
+    )
+
+    enriched_context = f"""
+SENSOR CONTEXT:
+{context}
+
+MONITOR AGENT REPORT:
+{monitor_data}
+
+PREDICTION AGENT FORECAST:
+{prediction_data}
+
+USER QUERY: {user_query}
+"""
+
+    if user_query and any(word in user_query.lower() for word in
+                         ["summary", "final", "arrived", "what happened"]):
         response_text = generate_summary(readings)
     else:
-        response_text = generate_narrative(context, user_query)
+        response_text = generate_narrative(context, enriched_context)
 
-    # Step 4 — send response back
+    if any(word in response_text for word in ["CRITICAL", "TAMPERING"]):
+        ctx.logger.info("Critical incident detected — triggering response agent")
+        await ctx.send(response_address, ChatMessage(
+            timestamp=datetime.utcnow(),
+            msg_id=uuid4(),
+            content=[TextContent(type="text", text=f"INCIDENT DETECTED: {response_text[:200]}")]
+        ))
+
     await ctx.send(sender, ChatMessage(
         timestamp=datetime.utcnow(),
         msg_id=uuid4(),
