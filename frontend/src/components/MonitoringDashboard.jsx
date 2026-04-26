@@ -12,6 +12,8 @@ import {
   createNarrativeEventFromAgentResponse,
 } from '../data/agentOutputs'
 import { useLiveData } from '../data/liveData'
+import { useKeyboard } from '../context/KeyboardContext'
+import KeyboardHint from './KeyboardHint'
 
 function postEvent(shipmentId, label, type, severity, time) {
   addEvent(shipmentId, {
@@ -138,9 +140,10 @@ function normalizeShipment(s) {
 }
 
 export default function MonitoringDashboard({ shipment: rawShipment, shipmentId: propShipmentId, onEndDelivery }) {
-    const { data: liveData } = useLiveData()
-  
-    const shipment = normalizeShipment(rawShipment)
+  const { data: liveData } = useLiveData()
+  const kb = useKeyboard()
+
+  const shipment = normalizeShipment(rawShipment)
   const generatedId = useRef(`AGS-${Math.floor(Math.random() * 9000) + 1000}`).current
   const shipmentId = propShipmentId || generatedId
   const [sensors, setSensors] = useState(() => getNominalSensors(shipment))
@@ -159,14 +162,33 @@ export default function MonitoringDashboard({ shipment: rawShipment, shipmentId:
   const incidentRef = useRef(false)
   const sensorHistoryRef = useRef(sensorHistory)
   const timelineRef = useRef(timeline)
+  // Stable refs for keyboard overlays to read synchronously
+  const sensorsRef = useRef(sensors)
+  const analysisRef = useRef(analysis)
+  const incidentActiveRef = useRef(false)
 
-  useEffect(() => {
-    sensorHistoryRef.current = sensorHistory
-  }, [sensorHistory])
+  useEffect(() => { sensorHistoryRef.current = sensorHistory }, [sensorHistory])
+  useEffect(() => { timelineRef.current = timeline }, [timeline])
+  useEffect(() => { sensorsRef.current = sensors }, [sensors])
+  useEffect(() => { analysisRef.current = analysis }, [analysis])
+  useEffect(() => { incidentActiveRef.current = incidentActive }, [incidentActive])
 
+  // Register this dashboard in the keyboard context so overlays can read live state
   useEffect(() => {
-    timelineRef.current = timeline
-  }, [timeline])
+    kb.setDashboardCtx({
+      shipmentId,
+      shipment,
+      sensorsRef,
+      analysisRef,
+      timelineRef,
+      incidentActiveRef,
+      triggerIncident: () => triggerIncident(),
+      resetToNominal:  () => resetToNominal(),
+      endDelivery:     () => handleEndDelivery(),
+    })
+    return () => kb.setDashboardCtx(null)
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [shipmentId])
 
   // Live nominal jitter every 2 seconds
   useEffect(() => {
@@ -339,6 +361,17 @@ export default function MonitoringDashboard({ shipment: rawShipment, shipmentId:
     }, 4000)
   }
 
+  function resetToNominal() {
+    setIncidentActive(false)
+    incidentRef.current = false
+    incidentActiveRef.current = false
+    setSensors(getNominalSensors(shipment))
+    setAnalysis(getNominalAnalysis(shipment))
+    setActiveAgentEvent(null)
+    setTimeline(getInitialTimeline())
+    setSensorHistory([{ ts: Date.now(), temperature: shipment.tempNominal, humidity: shipment.humidityNominal }])
+  }
+
   function resolveActiveAgentEvent() {
     if (!activeAgentEvent) return
     setAgentLog((prev) => [
@@ -396,15 +429,30 @@ export default function MonitoringDashboard({ shipment: rawShipment, shipmentId:
           <ActiveShipmentSwitcher currentShipmentId={shipmentId} />
           {!incidentActive ? (
             <button className="btn-incident" onClick={triggerIncident}>
-              ⚡ Simulate Mishandling Incident
+              ⚡ Inject Sensor Event <KeyboardHint keys={['⇧', 'T']} dim />
             </button>
           ) : (
-            <span className="incident-badge mono">INCIDENT ACTIVE</span>
+            <button className="incident-badge-btn mono" onClick={resetToNominal} title="Reset to nominal (Shift+N)">
+              INCIDENT ACTIVE <KeyboardHint keys={['⇧', 'N']} dim />
+            </button>
           )}
           <button className="btn-end-delivery" onClick={handleEndDelivery}>
-            End Delivery →
+            Complete Delivery <KeyboardHint keys={['⇧', 'E']} dim />
           </button>
         </div>
+      </div>
+
+      {/* ── Keyboard hint bar ── */}
+      <div className="kb-bar mono">
+        <KeyboardHint keys="/" label="Commands" />
+        <KeyboardHint keys="?" label="Ask Aegis" />
+        <KeyboardHint keys="M" label="Mission Control" />
+        <KeyboardHint keys="G" label="Geo Mode" />
+        <KeyboardHint keys="S" label="Sensor Matrix" />
+        <KeyboardHint keys="R" label="Report" />
+        {incidentActive && <KeyboardHint keys="Z" label="Incident Zoom" />}
+        <span className="kb-bar-divider" />
+        <KeyboardHint keys="shift" label="All shortcuts" />
       </div>
 
       <div className="dashboard-body">

@@ -2,28 +2,57 @@ import { useEffect, useRef } from 'react'
 import { Routes, Route, Link, useLocation } from 'react-router-dom'
 import './App.css'
 import { NotificationProvider, useNotifications } from './context/NotificationContext'
+import { KeyboardProvider } from './context/KeyboardContext'
+import { useKeyboardShortcuts } from './hooks/useKeyboardShortcuts'
 import { listShipments } from './api'
 import Dashboard from './pages/Dashboard'
 import NewShipment from './pages/NewShipment'
 import ConnectPage from './pages/ConnectPage'
 import MonitorPage from './pages/MonitorPage'
 import ReportPage from './pages/ReportPage'
+import CommandPalette from './components/CommandPalette'
+import AIQueryOverlay from './components/AIQueryOverlay'
+import MissionControl from './components/MissionControl'
+import IncidentZoom from './components/IncidentZoom'
+import ReportDrawer from './components/ReportDrawer'
+import SensorMatrix from './components/SensorMatrix'
+import GeoMode from './components/GeoMode'
+import ShortcutOverlay from './components/ShortcutOverlay'
 
 export default function App() {
   return (
     <NotificationProvider>
-      <div className="app">
-        <AppNav />
-        <GlobalShipmentPoller />
-        <Routes>
-          <Route path="/" element={<Dashboard />} />
-          <Route path="/shipments/new" element={<NewShipment />} />
-          <Route path="/shipments/:id/connect" element={<ConnectPage />} />
-          <Route path="/shipments/:id/monitor" element={<MonitorPage />} />
-          <Route path="/shipments/:id/report" element={<ReportPage />} />
-        </Routes>
-      </div>
+      <KeyboardProvider>
+        <div className="app">
+          <AppNav />
+          <GlobalShipmentPoller />
+          <KeyboardLayer />
+          <Routes>
+            <Route path="/" element={<Dashboard />} />
+            <Route path="/shipments/new" element={<NewShipment />} />
+            <Route path="/shipments/:id/connect" element={<ConnectPage />} />
+            <Route path="/shipments/:id/monitor" element={<MonitorPage />} />
+            <Route path="/shipments/:id/report" element={<ReportPage />} />
+          </Routes>
+        </div>
+      </KeyboardProvider>
     </NotificationProvider>
+  )
+}
+
+function KeyboardLayer() {
+  useKeyboardShortcuts()
+  return (
+    <>
+      <CommandPalette />
+      <AIQueryOverlay />
+      <MissionControl />
+      <IncidentZoom />
+      <ReportDrawer />
+      <SensorMatrix />
+      <GeoMode />
+      <ShortcutOverlay />
+    </>
   )
 }
 
