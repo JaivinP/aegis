@@ -2,6 +2,8 @@ export default function SensorPanel({ sensors, shipment }) {
   const tempStatus = getTempStatus(sensors.temperature, shipment)
   const humidityStatus = getHumidityStatus(sensors.humidity, shipment)
   const tempBarPct = getTempBarPct(sensors.temperature, shipment)
+  const tempRange = `${shipment.tempMin}°C – ${shipment.tempMax}°C`
+  const humidityRange = `${shipment.humidityMin}% – ${shipment.humidityMax}%`
 
   return (
     <div className="panel">
@@ -13,14 +15,14 @@ export default function SensorPanel({ sensors, shipment }) {
         <SensorRow
           label="TEMPERATURE"
           value={`${sensors.temperature.toFixed(1)}°C`}
-          subLabel={`Safe range: ${shipment.tempRange}`}
+          subLabel={`Safe: ${tempRange}`}
           status={tempStatus}
           barPct={tempBarPct}
         />
         <SensorRow
           label="HUMIDITY"
           value={`${sensors.humidity}%`}
-          subLabel={`Safe range: ${shipment.humidityRange}`}
+          subLabel={`Safe: ${humidityRange}`}
           status={humidityStatus}
           barPct={Math.min(sensors.humidity, 100)}
         />
@@ -73,7 +75,7 @@ function SensorRow({ label, value, subLabel, status, barPct, isText }) {
     status === 'ok' ? 'var(--teal)' : status === 'warn' ? 'var(--amber)' : 'var(--red)'
 
   return (
-    <div className="sensor-row">
+    <div className={`sensor-row sensor-row--${status}`}>
       <div className="sensor-row-label mono">{label}</div>
       <div className="sensor-row-value mono" style={{ color: statusColor }}>
         {value}

@@ -395,6 +395,13 @@
   flex-direction: column;
 }
 
+.dashboard-body {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  gap: 0;
+}
+
 .dashboard-topbar {
   display: flex;
   align-items: center;
@@ -411,6 +418,24 @@
   align-items: center;
   gap: 1rem;
   flex-wrap: wrap;
+}
+
+.db-status-pill {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  font-size: 0.65rem;
+  letter-spacing: 0.12em;
+  padding: 0.3rem 0.7rem;
+  border-radius: 20px;
+}
+
+.db-viability {
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+  padding-left: 0.75rem;
+  border-left: 1px solid var(--border);
 }
 
 .dashboard-controls {
@@ -529,6 +554,16 @@
   border: 1px solid var(--border);
   border-radius: 8px;
   padding: 0.75rem;
+  transition: border-color 0.4s;
+}
+
+.sensor-row--alert {
+  border-color: rgba(239, 68, 68, 0.35);
+  background: rgba(239, 68, 68, 0.04);
+}
+
+.sensor-row--warn {
+  border-color: rgba(245, 158, 11, 0.3);
 }
 
 .sensor-row-label {
@@ -1474,4 +1509,194 @@
   padding-top: 1rem;
   margin-top: 1rem;
   margin-bottom: 0.75rem;
+}
+
+/* ── Sensor charts panel ── */
+.panel--charts {
+  grid-column: 1 / -1;
+}
+
+.charts-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1.25rem;
+}
+
+@media (max-width: 800px) {
+  .charts-grid { grid-template-columns: 1fr; }
+}
+
+.chart-block {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.chart-label {
+  font-size: 0.6rem;
+  letter-spacing: 0.18em;
+  color: var(--text-muted);
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.chart-status-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  display: inline-block;
+}
+
+.chart-status-dot.teal { background: var(--teal); }
+.chart-status-dot.red  { background: var(--red); animation: pulse-red 1.5s ease-in-out infinite; }
+
+.chart-range-label {
+  font-size: 0.58rem;
+  color: var(--text-muted);
+  letter-spacing: 0.08em;
+}
+
+/* ── Photo request panel ── */
+.photo-panel {
+  background: var(--bg-card);
+  border-bottom: 1px solid var(--border);
+  padding: 1.25rem 1rem;
+}
+
+.photo-panel-header {
+  margin-bottom: 1rem;
+}
+
+.photo-panel-subtitle {
+  font-size: 0.78rem;
+  color: var(--text-dim);
+  margin-top: 0.25rem;
+}
+
+.photo-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1rem;
+}
+
+@media (max-width: 700px) {
+  .photo-grid { grid-template-columns: 1fr; }
+}
+
+.photo-slot {
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  background: rgba(0,0,0,0.15);
+  transition: border-color 0.3s;
+}
+
+.photo-slot--received {
+  border-color: var(--border-hover);
+}
+
+.photo-slot-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  padding: 0.875rem 1rem;
+  border-bottom: 1px solid var(--border);
+  gap: 0.5rem;
+}
+
+.photo-slot-label {
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+}
+
+.photo-slot-desc {
+  font-size: 0.68rem;
+  color: var(--text-muted);
+  margin-top: 0.2rem;
+}
+
+.photo-retake-btn {
+  padding: 0.3rem 0.6rem;
+  font-size: 0.68rem;
+  flex-shrink: 0;
+}
+
+.photo-request-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.75rem;
+  padding: 2rem 1rem;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  flex: 1;
+  transition: background 0.2s;
+}
+
+.photo-request-btn:hover {
+  background: rgba(0,200,180,0.04);
+}
+
+.photo-request-icon {
+  font-size: 2rem;
+  opacity: 0.5;
+}
+
+.photo-request-text {
+  font-size: 0.72rem;
+  letter-spacing: 0.1em;
+  color: var(--teal);
+}
+
+.photo-pending {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.75rem;
+  padding: 2rem 1rem;
+  flex: 1;
+}
+
+.photo-pending-anim {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.photo-pending-text {
+  font-size: 0.72rem;
+  letter-spacing: 0.08em;
+  color: var(--teal);
+}
+
+.photo-pending-sub {
+  font-size: 0.62rem;
+  color: var(--text-muted);
+  letter-spacing: 0.06em;
+}
+
+.photo-received {
+  display: flex;
+  flex-direction: column;
+}
+
+.photo-img {
+  width: 100%;
+  display: block;
+  object-fit: cover;
+}
+
+.photo-timestamp {
+  font-size: 0.6rem;
+  letter-spacing: 0.08em;
+  color: var(--text-muted);
+  padding: 0.5rem 0.875rem;
+  border-top: 1px solid var(--border);
 }

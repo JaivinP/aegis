@@ -3,6 +3,8 @@ import SensorPanel from './SensorPanel'
 import AIAnalysisPanel from './AIAnalysisPanel'
 import RoutePanel from './RoutePanel'
 import TimelinePanel from './TimelinePanel'
+import SensorCharts from './SensorCharts'
+import PhotoRequestPanel from './PhotoRequestPanel'
 import { addEvent, updateShipment } from '../api'
 
 function postEvent(shipmentId, label, type, severity, time) {
@@ -92,18 +94,29 @@ export default function MonitoringDashboard({ shipment: rawShipment, shipmentId:
   const generatedId = useRef(`AGS-${Math.floor(Math.random() * 9000) + 1000}`).current
   const shipmentId = propShipmentId || generatedId
 
+  // Sensor history for charts (last 60 readings)
+  const [sensorHistory, setSensorHistory] = useState(() => [{
+    ts: Date.now(),
+    temperature: shipment.tempNominal,
+    humidity: shipment.humidityNominal,
+  }])
+
   // Live nominal jitter every 2 seconds
   useEffect(() => {
     const interval = setInterval(() => {
       if (incidentRef.current) return
       setSensors((prev) => {
         const newProgress = Math.min(prev.routeProgress + 0.25, 95)
+        const newTemp = parseFloat((shipment.tempNominal + (Math.random() - 0.5) * 0.4).toFixed(1))
+        const newHumidity = Math.round(shipment.humidityNominal + (Math.random() - 0.5) * 3)
+        setSensorHistory((h) => [
+          ...h.slice(-59),
+          { ts: Date.now(), temperature: newTemp, humidity: newHumidity },
+        ])
         return {
           ...prev,
-          temperature: parseFloat(
-            (shipment.tempNominal + (Math.random() - 0.5) * 0.4).toFixed(1)
-          ),
-          humidity: Math.round(shipment.humidityNominal + (Math.random() - 0.5) * 3),
+          temperature: newTemp,
+          humidity: newHumidity,
           routeProgress: newProgress,
           location: getLocation(newProgress),
         }
@@ -137,10 +150,13 @@ export default function MonitoringDashboard({ shipment: rawShipment, shipmentId:
 
     // +1.5s: thermal excursion
     setTimeout(() => {
+      const excursionTemp = parseFloat((shipment.tempMax + 1.8).toFixed(1))
+      const excursionHumidity = Math.min(shipment.humidityMax + 18, 98)
+      setSensorHistory((h) => [...h.slice(-59), { ts: Date.now(), temperature: excursionTemp, humidity: excursionHumidity }])
       setSensors((prev) => ({
         ...prev,
-        temperature: parseFloat((shipment.tempMax + 1.8).toFixed(1)),
-        humidity: Math.min(shipment.humidityMax + 18, 98),
+        temperature: excursionTemp,
+        humidity: excursionHumidity,
         routeProgress: Math.min(prev.routeProgress + 2, 95),
         location: getLocation(Math.min(prev.routeProgress + 2, 95)),
       }))
@@ -189,22 +205,31 @@ export default function MonitoringDashboard({ shipment: rawShipment, shipmentId:
     onEndDelivery({ sensors, analysis, timeline, incidentActive })
   }
 
+  const statusColor = analysis.status === 'CRITICAL' ? 'var(--red)' : analysis.status === 'WARNING' ? 'var(--amber)' : 'var(--teal)'
+
   return (
     <div className="dashboard">
+      {/* ── Topbar ── */}
       <div className="dashboard-topbar">
         <div className="dashboard-shipment-info">
-          <span className="mono" style={{ fontSize: '0.65rem', color: 'var(--text-muted)', letterSpacing: '0.1em' }}>
-            ACTIVE SHIPMENT
-          </span>
-          <span className="mono" style={{ fontSize: '0.9rem', color: 'var(--teal)', fontWeight: 700 }}>
-            {shipment.name}
-          </span>
-          <span className="mono" style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>
-            ID: {shipmentId}
-          </span>
-          <span className="mono" style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>
-            {shipment.complianceFramework}
-          </span>
+          <span style={{ fontSize: '1.4rem' }}>{shipment.icon}</span>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.1rem' }}>
+            <span className="mono" style={{ fontSize: '0.9rem', color: 'var(--teal)', fontWeight: 700 }}>
+              {shipment.name}
+            </span>
+            <span className="mono" style={{ fontSize: '0.65rem', color: 'var(--text-muted)' }}>
+              {shipmentId} · {shipment.complianceFramework}
+            </span>
+          </div>
+          {/* Live status pill */}
+          <div className="db-status-pill mono" style={{ background: `${statusColor}18`, border: `1px solid ${statusColor}55`, color: statusColor }}>
+            <span style={{ width: 7, height: 7, borderRadius: '50%', background: statusColor, display: 'inline-block', animation: 'pulse 2s ease-in-out infinite' }} />
+            {analysis.status}
+          </div>
+          <div className="mono db-viability">
+            <span style={{ fontSize: '0.58rem', color: 'var(--text-muted)', letterSpacing: '0.12em' }}>VIABILITY</span>
+            <span style={{ fontSize: '1.1rem', fontWeight: 700, color: statusColor }}>{analysis.viabilityScore.toFixed(1)}%</span>
+          </div>
         </div>
         <div className="dashboard-controls">
           {!incidentActive ? (
@@ -220,11 +245,18 @@ export default function MonitoringDashboard({ shipment: rawShipment, shipmentId:
         </div>
       </div>
 
-      <div className="dashboard-grid">
-        <SensorPanel sensors={sensors} shipment={shipment} />
-        <AIAnalysisPanel analysis={analysis} />
-        <RoutePanel sensors={sensors} shipment={shipment} />
-        <TimelinePanel timeline={timeline} />
+      <div className="dashboard-body">
+        {/* ── Photo request panel ── */}
+        <PhotoRequestPanel shipmentId={shipmentId} />
+
+        {/* ── Main grid ── */}
+        <div className="dashboard-grid">
+          <SensorPanel sensors={sensors} shipment={shipment} />
+          <AIAnalysisPanel analysis={analysis} />
+          <SensorCharts history={sensorHistory} shipment={shipment} />
+          <RoutePanel sensors={sensors} shipment={shipment} />
+          <TimelinePanel timeline={timeline} />
+        </div>
       </div>
     </div>
   )
