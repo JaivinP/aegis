@@ -12,7 +12,7 @@ DEVICE_ID = "aegis-container-001"
 def calculate_gforce(x, y, z):
     if x is None or y is None or z is None:
         return 0.0
-    return round(math.sqrt(x**2 + y**2 + z**2) / 9.81, 3)
+    return round(math.sqrt(x**2 + y**2 + z**2) / 4.41, 3)
 
 def fetch_latest():
     try:
