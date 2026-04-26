@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useKeyboard } from '../context/KeyboardContext'
 import { listShipments } from '../api'
+import RealRouteMap from './RealRouteMap'
 
 const RISK_STYLE = {
   critical: { color: 'var(--red)',   bg: 'rgba(239,68,68,0.1)',   border: 'rgba(239,68,68,0.3)' },
@@ -35,6 +36,7 @@ function shipToCard(s, dashboardCtx) {
     complianceFramework: s.complianceFramework || '',
     tempMin: s.tempMin,
     tempMax: s.tempMax,
+    progress: sensors?.routeProgress ?? (s.status === 'COMPLETED' ? 100 : 50),
   }
 }
 
@@ -83,6 +85,7 @@ export default function MissionControl() {
   }, [handleKey])
 
   if (!missionControlOpen) return null
+  const selectedCard = cards[selected]
 
   return (
     <div className="kb-backdrop kb-backdrop--dark" onClick={() => setMissionControlOpen(false)}>
@@ -114,58 +117,80 @@ export default function MissionControl() {
         )}
 
         {!loading && cards.length > 0 && (
-          <div className="kb-mc-grid">
-            {cards.map((s, i) => {
-              const rs = RISK_STYLE[s.risk] || RISK_STYLE.ok
-              const isSelected = i === selected
-              const tempBad = s.tempMin != null && s.tempMax != null &&
-                (s.temperature < s.tempMin || s.temperature > s.tempMax)
-              return (
-                <button
-                  key={s.shipmentId}
-                  className={`kb-mc-card ${isSelected ? 'kb-mc-card--selected' : ''}`}
-                  onClick={() => { setMissionControlOpen(false); navigate(`/shipments/${s.shipmentId}/monitor`) }}
-                  onMouseEnter={() => setSelected(i)}
-                  style={isSelected ? { borderColor: rs.color, background: rs.bg } : {}}
-                >
-                  <div className="kb-mc-card-top">
-                    <span className="kb-mc-icon">{s.icon}</span>
-                    <span className="kb-mc-status mono" style={{ color: rs.color, background: rs.bg, border: `1px solid ${rs.border}` }}>
-                      {s.status}
-                    </span>
+          <div className="kb-mc-content">
+            {selectedCard && (
+              <div className="kb-mc-map-panel">
+                <RealRouteMap
+                  origin={selectedCard.origin}
+                  destination={selectedCard.destination}
+                  progress={selectedCard.progress}
+                  height={240}
+                  compact
+                  className="kb-mc-real-map"
+                />
+                <div className="kb-mc-map-meta">
+                  <div>
+                    <div className="kb-mc-map-title">{selectedCard.productName}</div>
+                    <div className="kb-mc-map-route mono">{selectedCard.origin} → {selectedCard.destination}</div>
                   </div>
-                  <div className="kb-mc-name">{s.productName}</div>
-                  <div className="kb-mc-id mono">{s.shipmentId}</div>
-                  <div className="kb-mc-route mono">{s.origin} → {s.destination}</div>
-                  {s.complianceFramework && (
-                    <div className="mono" style={{ fontSize: '0.55rem', color: 'var(--text-muted)' }}>{s.complianceFramework}</div>
-                  )}
-                  <div className="kb-mc-metrics">
-                    <div className="kb-mc-metric">
-                      <span className="kb-mc-metric-label mono">TEMP</span>
-                      <span className="kb-mc-metric-val mono" style={{ color: tempBad ? 'var(--red)' : 'var(--teal)' }}>
-                        {s.temperature}°C
+                  <div className="kb-mc-map-progress mono">{Math.round(selectedCard.progress)}%</div>
+                </div>
+              </div>
+            )}
+
+            <div className="kb-mc-grid">
+              {cards.map((s, i) => {
+                const rs = RISK_STYLE[s.risk] || RISK_STYLE.ok
+                const isSelected = i === selected
+                const tempBad = s.tempMin != null && s.tempMax != null &&
+                  (s.temperature < s.tempMin || s.temperature > s.tempMax)
+                return (
+                  <button
+                    key={s.shipmentId}
+                    className={`kb-mc-card ${isSelected ? 'kb-mc-card--selected' : ''}`}
+                    onClick={() => { setMissionControlOpen(false); navigate(`/shipments/${s.shipmentId}/monitor`) }}
+                    onMouseEnter={() => setSelected(i)}
+                    style={isSelected ? { borderColor: rs.color, background: rs.bg } : {}}
+                  >
+                    <div className="kb-mc-card-top">
+                      <span className="kb-mc-icon">{s.icon}</span>
+                      <span className="kb-mc-status mono" style={{ color: rs.color, background: rs.bg, border: `1px solid ${rs.border}` }}>
+                        {s.status}
                       </span>
                     </div>
-                    <div className="kb-mc-metric">
-                      <span className="kb-mc-metric-label mono">VIABILITY</span>
-                      <span className="kb-mc-metric-val mono" style={{ color: s.viability < 80 ? 'var(--amber)' : 'var(--teal)' }}>
-                        {s.viability}%
-                      </span>
-                    </div>
-                    {s.tempMin != null && s.tempMax != null && (
+                    <div className="kb-mc-name">{s.productName}</div>
+                    <div className="kb-mc-id mono">{s.shipmentId}</div>
+                    <div className="kb-mc-route mono">{s.origin} → {s.destination}</div>
+                    {s.complianceFramework && (
+                      <div className="mono" style={{ fontSize: '0.55rem', color: 'var(--text-muted)' }}>{s.complianceFramework}</div>
+                    )}
+                    <div className="kb-mc-metrics">
                       <div className="kb-mc-metric">
-                        <span className="kb-mc-metric-label mono">RANGE</span>
-                        <span className="kb-mc-metric-val mono" style={{ fontSize: '0.62rem', color: 'var(--text-muted)' }}>
-                          {s.tempMin}–{s.tempMax}°C
+                        <span className="kb-mc-metric-label mono">TEMP</span>
+                        <span className="kb-mc-metric-val mono" style={{ color: tempBad ? 'var(--red)' : 'var(--teal)' }}>
+                          {s.temperature}°C
                         </span>
                       </div>
-                    )}
-                  </div>
-                  <SparkBar value={s.viability} color={s.viability < 80 ? 'var(--amber)' : 'var(--teal)'} />
-                </button>
-              )
-            })}
+                      <div className="kb-mc-metric">
+                        <span className="kb-mc-metric-label mono">VIABILITY</span>
+                        <span className="kb-mc-metric-val mono" style={{ color: s.viability < 80 ? 'var(--amber)' : 'var(--teal)' }}>
+                          {s.viability}%
+                        </span>
+                      </div>
+                      {s.tempMin != null && s.tempMax != null && (
+                        <div className="kb-mc-metric">
+                          <span className="kb-mc-metric-label mono">RANGE</span>
+                          <span className="kb-mc-metric-val mono" style={{ fontSize: '0.62rem', color: 'var(--text-muted)' }}>
+                            {s.tempMin}–{s.tempMax}°C
+                          </span>
+                        </div>
+                      )}
+                    </div>
+                    <SparkBar value={s.viability} color={s.viability < 80 ? 'var(--amber)' : 'var(--teal)'} />
+                  </button>
+                )
+              })}
+            </div>
           </div>
         )}
       </div>

@@ -369,15 +369,61 @@
   font-size: 0.65rem;
   color: var(--text-muted);
 }
+.kb-mc-content {
+  overflow-y: auto;
+}
+.kb-mc-content::-webkit-scrollbar { width: 4px; }
+.kb-mc-content::-webkit-scrollbar-thumb { background: rgba(0,200,180,0.2); border-radius: 2px; }
+.kb-mc-map-panel {
+  position: relative;
+  margin: 1rem 1.5rem 0;
+  border: 1px solid rgba(0,200,180,0.12);
+  border-radius: 10px;
+  overflow: hidden;
+  background: rgba(5,10,16,0.72);
+}
+.kb-mc-real-map {
+  border: 0;
+  border-radius: 0;
+}
+.kb-mc-map-meta {
+  position: absolute;
+  left: 0.75rem;
+  right: 0.75rem;
+  bottom: 0.75rem;
+  z-index: 4;
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 1rem;
+  pointer-events: none;
+}
+.kb-mc-map-title {
+  color: var(--text);
+  font-size: 0.9rem;
+  font-weight: 600;
+  text-shadow: 0 1px 8px rgba(0,0,0,0.8);
+}
+.kb-mc-map-route {
+  margin-top: 0.18rem;
+  color: rgba(255,255,255,0.7);
+  font-size: 0.62rem;
+  text-shadow: 0 1px 8px rgba(0,0,0,0.8);
+}
+.kb-mc-map-progress {
+  padding: 0.28rem 0.5rem;
+  border: 1px solid rgba(0,200,180,0.25);
+  border-radius: 5px;
+  background: rgba(5,10,16,0.82);
+  color: var(--teal);
+  font-size: 0.65rem;
+}
 .kb-mc-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
   gap: 1rem;
   padding: 1.25rem 1.5rem;
-  overflow-y: auto;
 }
-.kb-mc-grid::-webkit-scrollbar { width: 4px; }
-.kb-mc-grid::-webkit-scrollbar-thumb { background: rgba(0,200,180,0.2); border-radius: 2px; }
 
 .kb-mc-card {
   background: rgba(12, 21, 32, 0.8);
@@ -2200,6 +2246,12 @@
   border: 1px solid rgba(0,200,180,0.12);
   border-radius: 8px;
   isolation: isolate;
+  cursor: grab;
+  touch-action: none;
+}
+
+.real-map--dragging {
+  cursor: grabbing;
 }
 
 .real-map::after {
@@ -2223,10 +2275,9 @@
   position: absolute;
   left: 0;
   top: 0;
-  width: 256px;
-  height: 256px;
   user-select: none;
   filter: saturate(0.72) contrast(0.9) brightness(0.68);
+  transition: width 0.12s ease, height 0.12s ease, transform 0.12s ease;
 }
 
 .real-map-overlay {
@@ -2235,6 +2286,7 @@
   width: 100%;
   height: 100%;
   z-index: 3;
+  pointer-events: none;
 }
 
 .real-map-route-shadow {
@@ -2243,6 +2295,7 @@
   stroke-width: 8;
   stroke-linecap: round;
   stroke-linejoin: round;
+  transition: points 0.12s ease;
 }
 
 .real-map-route {
@@ -2253,6 +2306,7 @@
   stroke-linejoin: round;
   stroke-dasharray: 9 7;
   filter: drop-shadow(0 0 8px rgba(0,200,180,0.5));
+  transition: points 0.12s ease;
 }
 
 .real-map-checkpoint circle {
@@ -2311,6 +2365,35 @@
   background: rgba(5,10,16,0.82);
   color: var(--teal);
   font-size: 0.58rem;
+}
+
+.real-map-controls {
+  position: absolute;
+  top: 0.7rem;
+  right: 0.7rem;
+  z-index: 5;
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  cursor: default;
+}
+
+.real-map-controls button {
+  width: 30px;
+  height: 30px;
+  border: 1px solid rgba(0,200,180,0.22);
+  border-radius: 5px;
+  background: rgba(5,10,16,0.86);
+  color: var(--teal);
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.72rem;
+  font-weight: 700;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.real-map-controls button:hover {
+  background: rgba(0,200,180,0.12);
 }
 
 .real-map-attribution {
@@ -3235,6 +3318,7 @@
 .type-card-name {
   font-size: 0.85rem;
   font-weight: 700;
+  color: white;
 }
 
 .type-card-temp {

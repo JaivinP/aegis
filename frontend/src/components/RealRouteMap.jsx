@@ -3,7 +3,11 @@ import { loadRoute } from '../utils/geoRoute'
 
 const TILE_SIZE = 256
 const MIN_ZOOM = 4
-const MAX_ZOOM = 12
+const MAX_ZOOM = 16
+const MIN_ZOOM_DELTA = -3
+const MAX_ZOOM_DELTA = 5
+const BUTTON_ZOOM_STEP = 0.5
+const WHEEL_ZOOM_SPEED = 0.003
 
 function lonToX(lon, zoom) {
   return ((lon + 180) / 360) * TILE_SIZE * 2 ** zoom
@@ -14,8 +18,25 @@ function latToY(lat, zoom) {
   return (0.5 - Math.log((1 + sinLat) / (1 - sinLat)) / (4 * Math.PI)) * TILE_SIZE * 2 ** zoom
 }
 
+function xToLon(x, zoom) {
+  return (x / (TILE_SIZE * 2 ** zoom)) * 360 - 180
+}
+
+function yToLat(y, zoom) {
+  const n = Math.PI - (2 * Math.PI * y) / (TILE_SIZE * 2 ** zoom)
+  return (180 / Math.PI) * Math.atan(Math.sinh(n))
+}
+
 function project(point, zoom) {
   return { x: lonToX(point.lon, zoom), y: latToY(point.lat, zoom) }
+}
+
+function unproject(point, zoom) {
+  return { lat: yToLat(point.y, zoom), lon: xToLon(point.x, zoom) }
+}
+
+function clamp(value, min, max) {
+  return Math.min(max, Math.max(min, value))
 }
 
 function routeBounds(points) {
@@ -40,20 +61,16 @@ function chooseViewport(points, width, height) {
     const nw = project({ lat: bounds.maxLat, lon: bounds.minLon }, zoom)
     const se = project({ lat: bounds.minLat, lon: bounds.maxLon }, zoom)
     if ((se.x - nw.x) <= width - padding * 2 && (se.y - nw.y) <= height - padding * 2) {
-      const center = project({
-        lat: (bounds.minLat + bounds.maxLat) / 2,
-        lon: (bounds.minLon + bounds.maxLon) / 2,
-      }, zoom)
+      const center = unproject({ x: (nw.x + se.x) / 2, y: (nw.y + se.y) / 2 }, zoom)
       return { zoom, center }
     }
   }
 
+  const nw = project({ lat: bounds.maxLat, lon: bounds.minLon }, MIN_ZOOM)
+  const se = project({ lat: bounds.minLat, lon: bounds.maxLon }, MIN_ZOOM)
   return {
     zoom: MIN_ZOOM,
-    center: project({
-      lat: (bounds.minLat + bounds.maxLat) / 2,
-      lon: (bounds.minLon + bounds.maxLon) / 2,
-    }, MIN_ZOOM),
+    center: unproject({ x: (nw.x + se.x) / 2, y: (nw.y + se.y) / 2 }, MIN_ZOOM),
   }
 }
 
@@ -74,19 +91,33 @@ export default function RealRouteMap({
   className = '',
 }) {
   const mapRef = useRef(null)
+  const dragRef = useRef(null)
   const [mapWidth, setMapWidth] = useState(compact ? 680 : 760)
+  const [mapHeight, setMapHeight] = useState(height)
+  const [zoomDelta, setZoomDelta] = useState(0)
+  const [pan, setPan] = useState({ x: 0, y: 0 })
+  const [dragging, setDragging] = useState(false)
   const [route, setRoute] = useState(null)
   const [status, setStatus] = useState('idle')
   const [error, setError] = useState(null)
 
   useEffect(() => {
     if (!mapRef.current) return
-    const updateWidth = () => setMapWidth(Math.max(320, Math.round(mapRef.current.getBoundingClientRect().width)))
-    updateWidth()
-    const observer = new ResizeObserver(updateWidth)
+    const updateSize = () => {
+      const rect = mapRef.current.getBoundingClientRect()
+      setMapWidth(Math.max(320, Math.round(rect.width)))
+      setMapHeight(Math.max(220, Math.round(rect.height || height)))
+    }
+    updateSize()
+    const observer = new ResizeObserver(updateSize)
     observer.observe(mapRef.current)
     return () => observer.disconnect()
-  }, [])
+  }, [height])
+
+  useEffect(() => {
+    setZoomDelta(0)
+    setPan({ x: 0, y: 0 })
+  }, [origin, destination])
 
   useEffect(() => {
     if (!origin || !destination) return
@@ -122,25 +153,38 @@ export default function RealRouteMap({
   }, [progress]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const width = mapWidth
+  const viewportHeight = mapHeight
   const viewport = useMemo(() => {
     if (!route?.points?.length) return null
-    return chooseViewport(route.points, width, height)
-  }, [route, width, height])
+    const fit = chooseViewport(route.points, width, viewportHeight)
+    const zoom = clamp(fit.zoom + zoomDelta, MIN_ZOOM, MAX_ZOOM)
+    const baseCenter = project(fit.center, zoom)
+    return {
+      zoom,
+      center: {
+        x: baseCenter.x + pan.x,
+        y: baseCenter.y + pan.y,
+      },
+    }
+  }, [route, width, viewportHeight, zoomDelta, pan])
 
   const map = useMemo(() => {
     if (!route || !viewport) return null
     const left = viewport.center.x - width / 2
-    const top = viewport.center.y - height / 2
+    const top = viewport.center.y - viewportHeight / 2
     const toScreen = (point) => {
       const p = project(point, viewport.zoom)
       return { x: p.x - left, y: p.y - top }
     }
 
-    const startTileX = Math.floor(left / TILE_SIZE)
-    const endTileX = Math.floor((left + width) / TILE_SIZE)
-    const startTileY = Math.floor(top / TILE_SIZE)
-    const endTileY = Math.floor((top + height) / TILE_SIZE)
-    const tileMax = 2 ** viewport.zoom
+    const tileZoom = Math.floor(viewport.zoom)
+    const tileScale = 2 ** (viewport.zoom - tileZoom)
+    const scaledTileSize = TILE_SIZE * tileScale
+    const startTileX = Math.floor(left / scaledTileSize)
+    const endTileX = Math.floor((left + width) / scaledTileSize)
+    const startTileY = Math.floor(top / scaledTileSize)
+    const endTileY = Math.floor((top + viewportHeight) / scaledTileSize)
+    const tileMax = 2 ** tileZoom
     const tiles = []
 
     for (let x = startTileX; x <= endTileX; x += 1) {
@@ -149,9 +193,10 @@ export default function RealRouteMap({
         const wrappedX = ((x % tileMax) + tileMax) % tileMax
         tiles.push({
           key: `${x}-${y}`,
-          x: x * TILE_SIZE - left,
-          y: y * TILE_SIZE - top,
-          url: `https://tile.openstreetmap.org/${viewport.zoom}/${wrappedX}/${y}.png`,
+          x: x * scaledTileSize - left,
+          y: y * scaledTileSize - top,
+          size: scaledTileSize,
+          url: `https://tile.openstreetmap.org/${tileZoom}/${wrappedX}/${y}.png`,
         })
       }
     }
@@ -165,10 +210,60 @@ export default function RealRouteMap({
       checkpoints: route.checkpoints.map((checkpoint) => ({ ...checkpoint, screen: toScreen(checkpoint) })),
       current: toScreen(route.current),
     }
-  }, [route, viewport, width, height])
+  }, [route, viewport, width, viewportHeight])
+
+  function zoomIn() {
+    setZoomDelta((value) => clamp(value + BUTTON_ZOOM_STEP, MIN_ZOOM_DELTA, MAX_ZOOM_DELTA))
+  }
+
+  function zoomOut() {
+    setZoomDelta((value) => clamp(value - BUTTON_ZOOM_STEP, MIN_ZOOM_DELTA, MAX_ZOOM_DELTA))
+  }
+
+  function resetView() {
+    setZoomDelta(0)
+    setPan({ x: 0, y: 0 })
+  }
+
+  function handleWheel(e) {
+    e.preventDefault()
+    setZoomDelta((value) => clamp(value - e.deltaY * WHEEL_ZOOM_SPEED, MIN_ZOOM_DELTA, MAX_ZOOM_DELTA))
+  }
+
+  function handlePointerDown(e) {
+    if (e.button !== 0) return
+    e.currentTarget.setPointerCapture(e.pointerId)
+    dragRef.current = { x: e.clientX, y: e.clientY }
+    setDragging(true)
+  }
+
+  function handlePointerMove(e) {
+    if (!dragRef.current) return
+    const dx = e.clientX - dragRef.current.x
+    const dy = e.clientY - dragRef.current.y
+    dragRef.current = { x: e.clientX, y: e.clientY }
+    setPan((value) => ({ x: value.x - dx, y: value.y - dy }))
+  }
+
+  function handlePointerUp(e) {
+    dragRef.current = null
+    setDragging(false)
+    try {
+      e.currentTarget.releasePointerCapture(e.pointerId)
+    } catch {}
+  }
 
   return (
-    <div ref={mapRef} className={`real-map ${className}`} style={{ height }}>
+    <div
+      ref={mapRef}
+      className={`real-map ${dragging ? 'real-map--dragging' : ''} ${className}`}
+      style={{ height }}
+      onWheel={handleWheel}
+      onPointerDown={handlePointerDown}
+      onPointerMove={handlePointerMove}
+      onPointerUp={handlePointerUp}
+      onPointerCancel={handlePointerUp}
+    >
       {status === 'loading' && (
         <div className="real-map-state mono">Loading real route…</div>
       )}
@@ -188,12 +283,16 @@ export default function RealRouteMap({
                 src={tile.url}
                 alt=""
                 draggable="false"
-                style={{ transform: `translate(${tile.x}px, ${tile.y}px)` }}
+                style={{
+                  width: tile.size,
+                  height: tile.size,
+                  transform: `translate(${tile.x}px, ${tile.y}px)`,
+                }}
               />
             ))}
           </div>
 
-          <svg className="real-map-overlay" viewBox={`0 0 ${width} ${height}`} preserveAspectRatio="none">
+          <svg className="real-map-overlay" viewBox={`0 0 ${width} ${viewportHeight}`} preserveAspectRatio="none">
             <polyline className="real-map-route-shadow" points={map.line} />
             <polyline className="real-map-route" points={map.line} />
             {map.checkpoints.map((checkpoint, index) => (
@@ -216,6 +315,12 @@ export default function RealRouteMap({
             <span>{Math.round(route.distanceMiles)} mi</span>
             <span>{formatDuration(route.durationMinutes)}</span>
             <span>{Math.round(progress)}%</span>
+          </div>
+
+          <div className="real-map-controls" onPointerDown={(e) => e.stopPropagation()} onWheel={(e) => e.stopPropagation()}>
+            <button type="button" onClick={zoomIn} aria-label="Zoom in">+</button>
+            <button type="button" onClick={zoomOut} aria-label="Zoom out">-</button>
+            <button type="button" onClick={resetView} aria-label="Reset map view">fit</button>
           </div>
 
           <a
