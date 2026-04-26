@@ -1,13 +1,13 @@
 export const AGENTS = {
   narrative: {
     id: 'narrative',
-    handle: '@aegis-narrative',
+    handle: '@failsafe-narrative',
     name: 'Narrative Agent',
     role: 'The brain',
   },
   response: {
     id: 'response',
-    handle: '@aegis-response',
+    handle: '@failsafe-response',
     name: 'Response Agent',
     role: 'The responder',
   },

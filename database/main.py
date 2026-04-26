@@ -26,7 +26,7 @@ from db import (  # noqa: E402
 )
 from models import EscalationDraft, Event, SensorReading, Shipment, ShipmentType  # noqa: E402
 
-app = FastAPI(title="Aegis Database API")
+app = FastAPI(title="Failsafe Database API")
 
 app.add_middleware(
     CORSMiddleware,
@@ -100,7 +100,7 @@ async def analyze_with_narrative_agent(payload: Dict[str, Any]):
 
         return {
             "ok": True,
-            "agent": "aegis-narrative",
+            "agent": "failsafe-narrative",
             "text": text,
             "audioAlert": audio_alert,
             "generatedAt": datetime.now(timezone.utc).isoformat(),
@@ -117,7 +117,7 @@ async def report_with_response_agent(payload: Dict[str, Any]):
         text = await run_in_threadpool(generate_response_from_payload, payload)
         return {
             "ok": True,
-            "agent": "aegis-response",
+            "agent": "failsafe-response",
             "text": text,
             "generatedAt": datetime.now(timezone.utc).isoformat(),
         }

@@ -21,7 +21,7 @@ function cacheKey(prefix, value) {
 function readCache(key) {
   if (routeCache.has(key)) return routeCache.get(key)
   try {
-    const raw = localStorage.getItem(`aegis:${key}`)
+    const raw = localStorage.getItem(`failsafe:${key}`)
     if (!raw) return null
     const parsed = JSON.parse(raw)
     routeCache.set(key, parsed)
@@ -34,7 +34,7 @@ function readCache(key) {
 function writeCache(key, value) {
   routeCache.set(key, value)
   try {
-    localStorage.setItem(`aegis:${key}`, JSON.stringify(value))
+    localStorage.setItem(`failsafe:${key}`, JSON.stringify(value))
   } catch {}
 }
 

@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react'
 
 const STEPS = [
-  { label: 'Searching for Aegis container', duration: 700 },
+  { label: 'Searching for Failsafe container', duration: 700 },
   { label: 'Sensor module found — firmware v2.4.1', duration: 450 },
   { label: 'Temperature sensor calibrated', duration: 550 },
   { label: 'Humidity sensor calibrated', duration: 500 },
@@ -43,7 +43,7 @@ export default function ContainerConnection({ shipment, onComplete }) {
       <div className="page-inner page-inner--narrow">
         <div className="page-header">
           <div className="section-label mono">CONTAINER INITIALIZATION</div>
-          <h1 className="page-title">Connecting Aegis Container</h1>
+          <h1 className="page-title">Connecting Failsafe Container</h1>
           <div className="connect-shipment-badge mono">
             {(shipment.productName || shipment.name || 'SHIPMENT').toUpperCase()}
             {shipment.tempMin != null && shipment.tempMax != null

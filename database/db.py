@@ -2,7 +2,7 @@ import os
 from motor.motor_asyncio import AsyncIOMotorClient
 
 MONGODB_URI = os.environ["MONGODB_URI"]
-MONGODB_DB = os.environ.get("MONGODB_DB", "aegis")
+MONGODB_DB = os.environ.get("MONGODB_DB", "failsafe")
 
 client = AsyncIOMotorClient(MONGODB_URI)
 db = client[MONGODB_DB]

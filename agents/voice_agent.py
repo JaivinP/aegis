@@ -214,7 +214,7 @@ def build_anomaly_alert_text(payload: Dict[str, Any], narrative_text: str) -> st
     issue_summary = format_issue_list(issues) if issues else "an anomaly"
     classification = extract_classification(narrative_text) or "anomaly"
     return (
-        f"Aegis alert. {shipment_name} has {issue_summary}."
+        f"Failsafe alert. {shipment_name} has {issue_summary}."
         f" Classification: {classification.title()}. Check the dashboard."
     )
 

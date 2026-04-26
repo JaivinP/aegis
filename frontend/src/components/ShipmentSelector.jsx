@@ -23,7 +23,7 @@ export default function ShipmentSelector({ onSelect }) {
     <div className="page-content">
       <div className="page-inner">
         <div className="page-header">
-          <div className="section-label mono">AEGIS CONDITION INTELLIGENCE</div>
+          <div className="section-label mono">FAILSAFE CONDITION INTELLIGENCE</div>
           <h1 className="page-title">Select Shipment Type</h1>
           <p className="page-sub">
             Choose the product category to configure monitoring parameters, compliance thresholds, and AI

@@ -7,7 +7,7 @@ export default function EscalationDrafts({ shipment, analysis, status }) {
         <div className="section-label mono">ESCALATION DOCUMENTS</div>
         <h2 className="escalation-title">Draft Documents for Review</h2>
         <p className="escalation-subhead">
-          The following documents were drafted by the Aegis Response Agent based on automated sensor analysis.
+          The following documents were drafted by the Failsafe Response Agent based on automated sensor analysis.
           Each document requires review and approval by a qualified officer before submission or implementation.
         </p>
       </div>
@@ -49,7 +49,7 @@ export default function EscalationDrafts({ shipment, analysis, status }) {
             ``,
             `All chain-of-custody records, sensor logs, and incident documentation are attached to this notification.`,
             ``,
-            `This notification is a draft prepared by the Aegis automated intelligence system. It must be reviewed and approved before transmission to the receiving party.`,
+            `This notification is a draft prepared by the Failsafe automated intelligence system. It must be reviewed and approved before transmission to the receiving party.`,
           ].join('\n')}
         />
 
@@ -72,7 +72,7 @@ export default function EscalationDrafts({ shipment, analysis, status }) {
               `  • Seal breach sensor data`,
               `  • AI incident classification report`,
               ``,
-              `This claim draft has been prepared by the Aegis automated analysis system and must be reviewed by authorized personnel before submission to the insurer.`,
+              `This claim draft has been prepared by the Failsafe automated analysis system and must be reviewed by authorized personnel before submission to the insurer.`,
             ].join('\n')}
           />
         )}

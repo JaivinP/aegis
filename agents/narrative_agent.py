@@ -293,7 +293,7 @@ def build_context_from_payload(payload):
 def generate_narrative_from_payload(payload):
     context = build_context_from_payload(payload)
     user_query = payload.get("query") or "Classify this shipment anomaly using the provided shipment, route, threshold, sensor, history, and timeline context."
-    prompt = f"""You are Aegis Narrative Agent, an autonomous shipment intelligence agent.
+    prompt = f"""You are Failsafe Narrative Agent, an autonomous shipment intelligence agent.
 
 Use the complete context below. Do not invent readings not present in the context.
 
@@ -374,7 +374,7 @@ def generate_summary(readings):
         verdict = "PASS — Cargo integrity maintained"
         action = "Cleared for distribution."
 
-    prompt = f"""You are Aegis, an autonomous shipment intelligence system.
+    prompt = f"""You are Failsafe, an autonomous shipment intelligence system.
     
 Generate a concise end-of-shipment summary report for:
 Shipment: {os.getenv('SHIPMENT_ID', 'AGS-0042')}

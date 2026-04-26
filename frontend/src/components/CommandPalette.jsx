@@ -8,7 +8,7 @@ const COMMANDS = [
   { id: 'geo-mode',         icon: '◎',  label: 'Geo Mode',           desc: 'Fullscreen route map',         category: 'Navigation' },
   { id: 'sensor-matrix',    icon: '◫',  label: 'Sensor Matrix',      desc: 'Live sensor wall view',        category: 'Navigation' },
   { id: 'dashboard',        icon: '◧',  label: 'Go to Dashboard',    desc: 'Return to shipment dashboard', category: 'Navigation' },
-  { id: 'ai-query',         icon: '◈',  label: 'Ask Aegis',          desc: 'AI operational intelligence',  category: 'AI' },
+  { id: 'ai-query',         icon: '◈',  label: 'Ask Failsafe',          desc: 'AI operational intelligence',  category: 'AI' },
   { id: 'stop-voice',       icon: '◻',  label: 'Stop Voice',         desc: 'Stop any playing audio alert', category: 'AI' },
   { id: 'report',           icon: '▤',  label: 'Open Report',        desc: 'Delivery report drawer',       category: 'Shipment' },
   { id: 'incident-zoom',    icon: '◉',  label: 'Incident Zoom',      desc: 'Detailed incident analysis',   category: 'Incident' },

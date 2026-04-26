@@ -52,7 +52,7 @@ function generateResponse(question, ctx) {
     return `No active incidents to summarize for shipment ${id}. All timeline events are nominal — container connected, route tracking active, sensors reporting normal readings.`
   }
 
-  return `Aegis has analyzed your query regarding shipment ${id}. Current system status is ${analysis?.status || 'NOMINAL'} with viability at ${analysis?.viabilityScore?.toFixed(1) || '97.8'}%. ${incident ? 'An active incident requires operator attention. Use R to open the report drawer or Z to view incident details.' : 'No anomalies detected. All sensors are within configured safe parameters.'}`
+  return `Failsafe has analyzed your query regarding shipment ${id}. Current system status is ${analysis?.status || 'NOMINAL'} with viability at ${analysis?.viabilityScore?.toFixed(1) || '97.8'}%. ${incident ? 'An active incident requires operator attention. Use R to open the report drawer or Z to view incident details.' : 'No anomalies detected. All sensors are within configured safe parameters.'}`
 }
 
 export default function AIQueryOverlay() {
@@ -96,7 +96,7 @@ export default function AIQueryOverlay() {
         <div className="kb-ai-header">
           <span className="kb-ai-icon">◈</span>
           <div>
-            <div className="kb-ai-title">Ask Aegis</div>
+            <div className="kb-ai-title">Ask Failsafe</div>
             <div className="kb-ai-subtitle mono">Operational intelligence layer</div>
           </div>
           <button className="kb-close-btn" onClick={() => setAiQueryOpen(false)}>✕</button>
@@ -142,7 +142,7 @@ export default function AIQueryOverlay() {
 
         {response && (
           <div className="kb-ai-response">
-            <div className="kb-ai-response-label mono">AEGIS ANALYSIS</div>
+            <div className="kb-ai-response-label mono">FAILSAFE ANALYSIS</div>
             <p className="kb-ai-response-text">{response}</p>
           </div>
         )}

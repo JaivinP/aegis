@@ -77,7 +77,7 @@ function getLiveAnomalyReasons(liveData, shipment) {
   const shock = Math.sqrt(Math.pow(liveData.acceleration.x, 2) + Math.pow(liveData.acceleration.y, 2) + Math.pow(liveData.acceleration.z, 2))
 
     if(shock > 4) {
-        reasons.push(`Dangeroud movement detected`)
+        reasons.push(`Dangerous movement detected`)
     }
 
   if (Number.isFinite(temperature) && (temperature < shipment.tempMin || temperature > shipment.tempMax)) {
@@ -100,7 +100,7 @@ function getInitialTimeline() {
   const now = Date.now()
   return [
     { time: new Date(now - 195000), label: 'Shipment initiated — container sealed', type: 'info' },
-    { time: new Date(now - 180000), label: 'Aegis container connected successfully', type: 'info' },
+    { time: new Date(now - 180000), label: 'Failsafe container connected successfully', type: 'info' },
     { time: new Date(now - 172000), label: 'Baseline sensor readings established', type: 'info' },
     { time: new Date(now - 140000), label: 'GPS lock acquired — route tracking active', type: 'info' },
   ]
@@ -608,7 +608,7 @@ export default function MonitoringDashboard({ shipment: rawShipment, shipmentId:
       {/* ── Keyboard hint bar ── */}
       <div className="kb-bar mono">
         <KeyboardHint keys="/" label="Commands" />
-        <KeyboardHint keys="?" label="Ask Aegis" />
+        <KeyboardHint keys="?" label="Ask Failsafe" />
         <KeyboardHint keys="M" label="Mission Control" />
         <KeyboardHint keys="G" label="Geo Mode" />
         <KeyboardHint keys="S" label="Sensor Matrix" />

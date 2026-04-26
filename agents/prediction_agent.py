@@ -14,8 +14,8 @@ from uagents_core.contrib.protocols.chat import (
 load_dotenv()
 
 agent = Agent(
-    name="aegis-prediction",
-    seed="aegis-prediction-seed-2026-unique",
+    name="failsafe-prediction",
+    seed="failsafe-prediction-seed-2026-unique",
     port=8003,
     mailbox=True
 )
@@ -146,7 +146,7 @@ async def handle_message(ctx: Context, sender: str, msg: ChatMessage):
     readings = get_readings(30)
     result = predict(readings)
 
-    response = f"""AEGIS PREDICTION REPORT — {datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S UTC')}
+    response = f"""FAILSAFE PREDICTION REPORT — {datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S UTC')}
 Shipment: {os.getenv('SHIPMENT_ID', 'AGS-0042')}
 
 CURRENT STATE

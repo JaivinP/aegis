@@ -5,7 +5,7 @@ const SECTIONS = [
     title: 'NAVIGATION',
     rows: [
       { keys: ['/'],       label: 'Command Palette' },
-      { keys: ['?'],       label: 'Ask Aegis (AI Copilot)' },
+      { keys: ['?'],       label: 'Ask Failsafe (AI Copilot)' },
       { keys: ['M'],       label: 'Mission Control' },
       { keys: ['G'],       label: 'Geo Mode' },
       { keys: ['S'],       label: 'Sensor Matrix' },
@@ -46,7 +46,7 @@ export default function ShortcutOverlay() {
   return (
     <div className="kb-shortcut-overlay">
       <div className="kb-shortcut-panel">
-        <div className="kb-shortcut-title mono">AEGIS OPS CONSOLE — KEYBOARD REFERENCE</div>
+        <div className="kb-shortcut-title mono">FAILSAFE OPS CONSOLE — KEYBOARD REFERENCE</div>
         <div className="kb-shortcut-grid">
           {SECTIONS.map((sec) => (
             <div key={sec.title} className="kb-shortcut-section">

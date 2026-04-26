@@ -7,7 +7,7 @@ from dotenv import load_dotenv
 load_dotenv()
 
 BACKEND_URL = os.getenv("BACKEND_URL", "http://34.41.16.247:8080")
-DEVICE_ID = "aegis-container-001"
+DEVICE_ID = "failsafe-container-001"
 
 def calculate_gforce(x, y, z):
     if x is None or y is None or z is None:

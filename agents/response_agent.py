@@ -17,12 +17,12 @@ llm = OpenAI(
     base_url="https://api.asi1.ai/v1"
 )
 
-RESPONSE_MODEL = os.getenv("AEGIS_RESPONSE_MODEL", "asi1-mini")
+RESPONSE_MODEL = os.getenv("FAILSAFE_RESPONSE_MODEL", "asi1-mini")
 
 agent = Agent(
-    name="aegis-response",
-    seed=os.getenv("AEGIS_RESPONSE_SEED", "aegis-response-seed"),
-    port=int(os.getenv("AEGIS_RESPONSE_PORT", "8004")),
+    name="failsafe-response",
+    seed=os.getenv("FAILSAFE_RESPONSE_SEED", "failsafe-response-seed"),
+    port=int(os.getenv("FAILSAFE_RESPONSE_PORT", "8004")),
     mailbox=True
 )
 
@@ -85,7 +85,7 @@ def derive_response_metrics(history, sensors, thresholds):
 
 
 def generate_deviation_report(incident, shipment_id=None, cargo=None):
-    prompt = f"""You are Aegis, an autonomous pharmaceutical shipment response system.
+    prompt = f"""You are Failsafe, an autonomous pharmaceutical shipment response system.
     
 An incident has been detected on shipment {value_or_unavailable(shipment_id)}.
 Cargo: {value_or_unavailable(cargo)}
@@ -97,7 +97,7 @@ Generate a formal FDA-style deviation report with these sections:
 1. INCIDENT SUMMARY (2 sentences)
 2. SENSOR DATA AT TIME OF INCIDENT
 3. PROBABLE CAUSE (with confidence %)
-4. IMMEDIATE ACTIONS TAKEN (list what Aegis did autonomously)
+4. IMMEDIATE ACTIONS TAKEN (list what Failsafe did autonomously)
 5. RECOMMENDED FOLLOW-UP
 6. INTEGRITY ASSESSMENT: PASS / FAIL / REQUIRES INSPECTION
 
@@ -125,7 +125,7 @@ def generate_response_from_payload(payload):
     cargo = shipment.get("productName") or shipment.get("name")
     metrics = derive_response_metrics(history, sensors, thresholds)
 
-    prompt = f"""You are Aegis Response Agent, an autonomous pharmaceutical shipment response system.
+    prompt = f"""You are Failsafe Response Agent, an autonomous pharmaceutical shipment response system.
 
 Generate the final response report from this full shipment context. Do not invent readings. If a field is missing, write "Not provided" rather than substituting a demo value.
 
@@ -225,7 +225,7 @@ AUTONOMOUS ACTIONS COMPLETED:
 Awaiting human confirmation to finalize submissions.
 """
 
-    response = f"""AEGIS RESPONSE AGENT — {datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S UTC')}
+    response = f"""FAILSAFE RESPONSE AGENT — {datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S UTC')}
 Shipment: {value_or_unavailable(os.getenv('SHIPMENT_ID'))}
 
 {report}

@@ -15,8 +15,8 @@ from uagents_core.contrib.protocols.chat import (
 load_dotenv()
 
 agent = Agent(
-    name="aegis-monitor",
-    seed="aegis-monitor-seed-2026-unique",
+    name="failsafe-monitor",
+    seed="failsafe-monitor-seed-2026-unique",
     port=8002,
     mailbox=True
 )
@@ -143,7 +143,7 @@ async def handle_message(ctx: Context, sender: str, msg: ChatMessage):
 
     result = analyze()
 
-    response = f"""AEGIS MONITOR REPORT — {datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S UTC')}
+    response = f"""FAILSAFE MONITOR REPORT — {datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S UTC')}
 Shipment: {os.getenv('SHIPMENT_ID', 'AGS-0042')}
 
 STATUS: {result['status']}

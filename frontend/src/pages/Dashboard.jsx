@@ -62,7 +62,7 @@ export default function Dashboard() {
       <div className="page-inner">
         <div className="page-header" style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', flexWrap: 'wrap', gap: '1rem' }}>
           <div>
-            <div className="section-label mono">AEGIS CONDITION INTELLIGENCE</div>
+            <div className="section-label mono">FAILSAFE CONDITION INTELLIGENCE</div>
             <h1 className="page-title">Shipment Dashboard</h1>
             <p className="page-sub">Monitor active shipments and review completed deliveries.</p>
           </div>

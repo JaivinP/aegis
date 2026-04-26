@@ -109,7 +109,7 @@ function AppNav() {
       <div className="nav-inner">
         <Link to="/" className="logo">
           <span className="logo-icon">◈</span>
-          <span className="logo-text">AEGIS</span>
+          <span className="logo-text">FAILSAFE</span>
         </Link>
 
         {!isDashboard && (
