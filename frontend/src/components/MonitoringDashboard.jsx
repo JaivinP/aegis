@@ -461,7 +461,7 @@ export default function MonitoringDashboard({ shipment: rawShipment, shipmentId:
 
         {/* ── Main grid ── */}
         <div className="dashboard-grid">
-          <SensorPanel sensors={{...sensors, temperature: liveData.temperature, humidity: liveData.humidity}} shipment={shipment} />
+          <SensorPanel sensors={{...sensors, temperature: liveData.temperature, humidity: liveData.humidity, water: liveData.water, shockDetected: liveData.shockDetected, light: liveData.light}} shipment={shipment} />
           <AIAnalysisPanel
             activeEvent={activeAgentEvent}
             log={agentLog}

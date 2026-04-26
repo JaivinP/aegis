@@ -28,15 +28,15 @@ export default function SensorPanel({ sensors, shipment }) {
         />
         <SensorRow
           label="SHOCK EVENTS"
-          value={sensors.shockCount === 0 ? 'NONE' : `${sensors.shockCount} EVENT${sensors.shockCount > 1 ? 'S' : ''}`}
+          value={sensors.shockDetected === 0 ? 'SAFE' : 'DANGER' }
           subLabel="Threshold: 0 events"
-          status={sensors.shockCount > 0 ? 'alert' : 'ok'}
+          status={sensors.shockDetected > 0 ? 'alert' : 'ok'}
         />
         <SensorRow
           label="WATER EXPOSURE"
-          value={sensors.waterExposure}
+          value={sensors.water < 30 ? 'DRY': 'WET'}
           subLabel="Protection: IP67"
-          status={sensors.waterExposure === 'DRY' ? 'ok' : 'alert'}
+          status={sensors.water < 30 ? 'ok' : 'alert'}
         />
         <SensorRow
           label="SEAL STATUS"
@@ -45,11 +45,10 @@ export default function SensorPanel({ sensors, shipment }) {
           status={sensors.sealStatus === 'INTACT' ? 'ok' : 'alert'}
         />
         <SensorRow
-          label="BATTERY"
-          value={`${sensors.battery}%`}
-          subLabel="Est. 72h remaining"
-          status={sensors.battery > 20 ? 'ok' : 'warn'}
-          barPct={sensors.battery}
+          label="LIGHT LEVEL"
+          value={`${sensors.light}%`}
+          status={sensors.light < 20 ? 'ok' : 'warn'}
+          barPct={sensors.light}
         />
         <SensorRow
           label="GPS / LOCATION"
