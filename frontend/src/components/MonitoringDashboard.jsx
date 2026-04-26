@@ -34,6 +34,12 @@ const ROUTE_LOCATIONS = [
   [82, 100, 'Phoenix, AZ'],
 ]
 
+const RED_ANOMALY_HOLD_MS = 1000
+const CALM_RESET_MS = 5000
+const AI_TRIGGER_COOLDOWN_MS = 60000
+const SHOCK_MAGNITUDE_THRESHOLD = 4
+const SHOCK_EVENT_LATCH_MS = 1500
+
 function getLocation(progress) {
   for (const [min, max, name] of ROUTE_LOCATIONS) {
     if (progress >= min && progress < max) return name
@@ -66,19 +72,22 @@ function getNominalAnalysis(shipment) {
   }
 }
 
-function getLiveAnomalyReasons(liveData, shipment) {
+function getLiveAnomalyReasons(liveData, shipment, options = {}) {
   if (!liveData) return []
 
   const reasons = []
   const temperature = Number(liveData.temperature)
   const humidity = Number(liveData.humidity)
-  const shockDetected = Number(liveData.shockDetected)
   const water = Number(liveData.water)
-  const shock = Math.sqrt(Math.pow(liveData.acceleration.x, 2) + Math.pow(liveData.acceleration.y, 2) + Math.pow(liveData.acceleration.z, 2))
+  const shockDetected = Number(liveData.shockDetected)
+  const shock = getShockMagnitude(liveData)
 
-    if(shock > 4) {
-        reasons.push(`Dangerous movement detected`)
-    }
+  if (shock > SHOCK_MAGNITUDE_THRESHOLD) {
+    reasons.push(`Dangerous movement detected`)
+  }
+  if (options.shockEventActive && Number.isFinite(shockDetected) && shockDetected > 0) {
+    reasons.push(`Shock detected: ${shockDetected.toFixed(2)}`)
+  }
 
   if (Number.isFinite(temperature) && (temperature < shipment.tempMin || temperature > shipment.tempMax)) {
     reasons.push(`Temperature out of range: ${temperature.toFixed(1)}°C (safe: ${shipment.tempMin}–${shipment.tempMax}°C)`)
@@ -86,14 +95,23 @@ function getLiveAnomalyReasons(liveData, shipment) {
   if (Number.isFinite(humidity) && (humidity < shipment.humidityMin || humidity > shipment.humidityMax)) {
     reasons.push(`Humidity out of range: ${humidity.toFixed(0)}% (safe: ${shipment.humidityMin}–${shipment.humidityMax}%)`)
   }
-  if (Number.isFinite(shockDetected) && shockDetected > 0) {
-    reasons.push(`Shock detected: ${shockDetected.toFixed(2)}`)
-  }
   if (Number.isFinite(water) && water >= 30) {
     reasons.push(`Water exposure: ${water.toFixed(0)}`)
   }
 
   return reasons
+}
+
+function getShockMagnitude(liveData) {
+  const accel = liveData?.acceleration
+  if (!accel) return 0
+
+  const x = Number(accel.x)
+  const y = Number(accel.y)
+  const z = Number(accel.z)
+  if (![x, y, z].every(Number.isFinite)) return 0
+
+  return Math.sqrt(x ** 2 + y ** 2 + z ** 2)
 }
 
 function computeLiveViability(liveData, shipment, routeProgress) {
@@ -162,6 +180,7 @@ function buildAgentPayload({ shipment, shipmentId, sensors, sensorHistory, timel
     shipmentId,
     timestamp: new Date().toISOString(),
     query: `Analyze current anomaly for shipment ${shipmentId}.`,
+    enableVoiceAlert: true,
     shipment: {
       shipmentId,
       productName: shipment.name,
@@ -187,6 +206,8 @@ function buildAgentPayload({ shipment, shipmentId, sensors, sensorHistory, timel
       temperature: sensors.temperature,
       humidity: sensors.humidity,
       shockCount: sensors.shockCount,
+      shockDetected: sensors.shockDetected,
+      acceleration: sensors.acceleration,
       waterExposure: sensors.waterExposure,
       sealStatus: sensors.sealStatus,
       battery: sensors.battery,
@@ -252,6 +273,10 @@ export default function MonitoringDashboard({ shipment: rawShipment, shipmentId:
   const agentLogRef = useRef(agentLog)
   // Live anomaly detection refs
   const prevLiveDataRef = useRef(null)
+  const redAnomalyStartedAtRef = useRef(null)
+  const calmStartedAtRef = useRef(null)
+  const shockEventLatchUntilRef = useRef(0)
+  const lastShockDetectedRef = useRef(0)
   const lastAiTriggerRef = useRef(0)
   const aiRunningRef = useRef(false)
   const voiceAlertActiveRef = useRef(false)
@@ -273,12 +298,34 @@ export default function MonitoringDashboard({ shipment: rawShipment, shipmentId:
   }, [liveData, sensors.routeProgress]) // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
-    if (!liveData) return
-    if (getLiveAnomalyReasons(liveData, shipment).length === 0) {
+    if (!liveData) {
+      redAnomalyStartedAtRef.current = null
+      calmStartedAtRef.current = null
+      shockEventLatchUntilRef.current = 0
+      return
+    }
+
+    const now = Date.now()
+    const shockEventActive = now < shockEventLatchUntilRef.current
+    const isCalm = getLiveAnomalyReasons(liveData, shipment, { shockEventActive }).length === 0
+    if (!isCalm) {
+      calmStartedAtRef.current = null
+      return
+    }
+
+    redAnomalyStartedAtRef.current = null
+    if (!calmStartedAtRef.current) {
+      calmStartedAtRef.current = now
+      return
+    }
+
+    if (now - calmStartedAtRef.current >= CALM_RESET_MS) {
       if (voiceAlertActiveRef.current) {
         resetVoiceAlert(shipmentId).catch(() => {})
       }
       voiceAlertActiveRef.current = false
+      lastAiTriggerRef.current = 0
+      calmStartedAtRef.current = null
     }
   }, [liveData, shipment, shipmentId])
 
@@ -300,20 +347,47 @@ export default function MonitoringDashboard({ shipment: rawShipment, shipmentId:
     ])
   }, [liveData])
 
-  // Live anomaly detection — triggers AI on red anomalies or big sensor shifts
+  // Live anomaly detection — triggers AI after sensors stay red briefly.
   useEffect(() => {
-    if (!liveData) return
+    if (!liveData) {
+      redAnomalyStartedAtRef.current = null
+      calmStartedAtRef.current = null
+      shockEventLatchUntilRef.current = 0
+      return
+    }
 
     const prev = prevLiveDataRef.current
     prevLiveDataRef.current = liveData
 
+    const now = Date.now()
+    const shockDetected = Number(liveData.shockDetected)
+    if (Number.isFinite(shockDetected) && shockDetected > lastShockDetectedRef.current) {
+      shockEventLatchUntilRef.current = now + SHOCK_EVENT_LATCH_MS
+    }
+    if (Number.isFinite(shockDetected)) {
+      lastShockDetectedRef.current = shockDetected
+    }
+
+    const shockEventActive = now < shockEventLatchUntilRef.current
+    const reasons = getLiveAnomalyReasons(liveData, shipment, { shockEventActive })
+    if (reasons.length === 0) {
+      redAnomalyStartedAtRef.current = null
+      return
+    }
+
+    calmStartedAtRef.current = null
+    if (!redAnomalyStartedAtRef.current) {
+      redAnomalyStartedAtRef.current = now
+      return
+    }
+
+    if (now - redAnomalyStartedAtRef.current < RED_ANOMALY_HOLD_MS) return
     if (!prev) return
     if (aiRunningRef.current) return
-    if (Date.now() - lastAiTriggerRef.current < 60000) return
+    if (voiceAlertActiveRef.current) return
+    if (now - lastAiTriggerRef.current < AI_TRIGGER_COOLDOWN_MS) return
 
-    const reasons = getLiveAnomalyReasons(liveData, shipment)
-
-    // Big shifts since last reading
+    // Include big shifts as context, but do not let them trigger AI by themselves.
     const tempShift = Math.abs(liveData.temperature - prev.temperature)
     const humidityShift = Math.abs(liveData.humidity - prev.humidity)
     if (tempShift > 3) {
@@ -327,7 +401,7 @@ export default function MonitoringDashboard({ shipment: rawShipment, shipmentId:
 
     const suppressVoice = voiceAlertActiveRef.current
     voiceAlertActiveRef.current = true
-    lastAiTriggerRef.current = Date.now()
+    lastAiTriggerRef.current = now
     const triggerReason = reasons.join('; ')
     const t = new Date()
     const triggerSensors = {
@@ -335,7 +409,11 @@ export default function MonitoringDashboard({ shipment: rawShipment, shipmentId:
       temperature: liveData.temperature,
       humidity: liveData.humidity,
       water: liveData.water,
+      acceleration: liveData.acceleration,
       shockDetected: liveData.shockDetected,
+      shockCount: reasons.some((reason) => reason.toLowerCase().includes('shock') || reason.toLowerCase().includes('movement'))
+        ? 1
+        : sensorsRef.current.shockCount,
     }
 
     setTimeline((prev) => [...prev, { time: t, label: `Live anomaly — ${triggerReason}`, type: 'alert' }])
@@ -592,6 +670,11 @@ export default function MonitoringDashboard({ shipment: rawShipment, shipmentId:
     setIncidentActive(false)
     incidentRef.current = false
     incidentActiveRef.current = false
+    redAnomalyStartedAtRef.current = null
+    calmStartedAtRef.current = null
+    shockEventLatchUntilRef.current = 0
+    lastShockDetectedRef.current = 0
+    lastAiTriggerRef.current = 0
     voiceAlertActiveRef.current = false
     setSensors(getNominalSensors(shipment))
     setAnalysis(getNominalAnalysis(shipment))

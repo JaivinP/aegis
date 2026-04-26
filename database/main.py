@@ -89,14 +89,17 @@ async def analyze_with_narrative_agent(payload: Dict[str, Any]):
         from voice_agent import alert_for_anomaly
 
         text = await run_in_threadpool(generate_narrative_from_payload, payload)
-        try:
-            audio_alert = await run_in_threadpool(alert_for_anomaly, payload, text)
-        except Exception as exc:
-            audio_alert = {
-                "triggered": True,
-                "ok": False,
-                "error": str(exc),
-            }
+        if payload.get("enableVoiceAlert"):
+            try:
+                audio_alert = await run_in_threadpool(alert_for_anomaly, payload, text)
+            except Exception as exc:
+                audio_alert = {
+                    "triggered": True,
+                    "ok": False,
+                    "error": str(exc),
+                }
+        else:
+            audio_alert = {"triggered": False, "reason": "voice_alert_disabled"}
 
         return {
             "ok": True,

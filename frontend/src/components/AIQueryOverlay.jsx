@@ -20,6 +20,7 @@ function buildPayload(question, ctx) {
   return {
     query: question,
     shipmentId: ctx?.shipmentId,
+    enableVoiceAlert: false,
     shipment,
     currentSensors: sensors,
     thresholds: {
