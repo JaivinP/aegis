@@ -1,25 +1,10 @@
-import { useState, useEffect } from 'react'
+import { useCallback, useState, useEffect } from 'react'
 import { useKeyboard } from '../context/KeyboardContext'
 
 export default function ReportDrawer() {
   const { reportDrawerOpen, setReportDrawerOpen, dashboardCtx } = useKeyboard()
   const [toast, setToast] = useState(false)
   const [approved, setApproved] = useState(false)
-
-  useEffect(() => {
-    if (!reportDrawerOpen) { setApproved(false); setToast(false) }
-  }, [reportDrawerOpen])
-
-  useEffect(() => {
-    if (!reportDrawerOpen) return
-    function onKey(e) {
-      if (e.key === 'a' || e.key === 'A') approve()
-    }
-    window.addEventListener('keydown', onKey)
-    return () => window.removeEventListener('keydown', onKey)
-  }, [reportDrawerOpen, approved])
-
-  if (!reportDrawerOpen) return null
 
   const analysis  = dashboardCtx?.analysisRef?.current
   const sensors   = dashboardCtx?.sensorsRef?.current
@@ -33,6 +18,38 @@ export default function ReportDrawer() {
   const status = incident ? 'COMPROMISED' : 'COMPLIANT'
   const statusColor = incident ? 'var(--red)' : 'var(--teal)'
 
+  const exportPdf = useCallback(() => {
+    const originalTitle = document.title
+    const safeShipmentId = String(id || 'shipment').replace(/[^a-z0-9-]/gi, '_')
+
+    document.title = `Aegis_Report_${safeShipmentId}`
+
+    const restoreTitle = () => {
+      document.title = originalTitle
+      window.removeEventListener('afterprint', restoreTitle)
+    }
+
+    window.addEventListener('afterprint', restoreTitle)
+    window.print()
+    setTimeout(restoreTitle, 1000)
+  }, [id])
+
+  useEffect(() => {
+    if (!reportDrawerOpen) { setApproved(false); setToast(false) }
+  }, [reportDrawerOpen])
+
+  useEffect(() => {
+    if (!reportDrawerOpen) return
+    function onKey(e) {
+      if (e.key === 'a' || e.key === 'A') approve()
+      if (e.key === 'e' || e.key === 'E') exportPdf()
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [reportDrawerOpen, approved, exportPdf])
+
+  if (!reportDrawerOpen) return null
+
   function approve() {
     if (approved) return
     setApproved(true)
@@ -44,7 +61,7 @@ export default function ReportDrawer() {
   return (
     <>
       <div className="kb-drawer-backdrop" onClick={() => setReportDrawerOpen(false)} />
-      <div className="kb-drawer">
+      <div className="kb-drawer kb-drawer-print-scope">
         <div className="kb-drawer-header">
           <div>
             <div className="kb-drawer-title mono">DELIVERY REPORT</div>
@@ -106,7 +123,7 @@ export default function ReportDrawer() {
             <kbd className="kb-key kb-key--sm">A</kbd>
             {approved ? 'Approved' : 'Approve Report'}
           </button>
-          <button className="kb-drawer-action">
+          <button className="kb-drawer-action" onClick={exportPdf}>
             <kbd className="kb-key kb-key--sm">E</kbd> Export PDF
           </button>
           <button className="kb-drawer-action">

@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { callResponseAgent } from '../api'
 import { AGENTS, createResponseReportFromAgentResponse } from '../data/agentOutputs'
 
@@ -116,6 +116,22 @@ export default function FinalReport({ data, shipment: rawShipment, shipmentId, o
   const [responseOutput, setResponseOutput] = useState(null)
   const [agentError, setAgentError] = useState(null)
 
+  const exportPdf = useCallback(() => {
+    const originalTitle = document.title
+    const safeShipmentId = String(shipmentId || 'shipment').replace(/[^a-z0-9-]/gi, '_')
+
+    document.title = `Aegis_Report_${safeShipmentId}`
+
+    const restoreTitle = () => {
+      document.title = originalTitle
+      window.removeEventListener('afterprint', restoreTitle)
+    }
+
+    window.addEventListener('afterprint', restoreTitle)
+    window.print()
+    setTimeout(restoreTitle, 1000)
+  }, [shipmentId])
+
   const complianceStats = buildComplianceStats({
     history: sensorHistory,
     sensors,
@@ -179,20 +195,37 @@ export default function FinalReport({ data, shipment: rawShipment, shipmentId, o
       })
   }, [shipmentId]) // eslint-disable-line react-hooks/exhaustive-deps
 
+  useEffect(() => {
+    function onKeyDown(event) {
+      if (event.key === 'e' || event.key === 'E') {
+        event.preventDefault()
+        exportPdf()
+      }
+    }
+
+    window.addEventListener('keydown', onKeyDown)
+    return () => window.removeEventListener('keydown', onKeyDown)
+  }, [exportPdf])
+
   return (
-    <div className="page-content">
+    <div className="page-content report-print-scope">
       <div className="page-inner">
         {/* Header */}
-        <div className="page-header">
-          <div className="section-label mono">DELIVERY COMPLETE</div>
-          <h1 className="page-title">Final Delivery Report</h1>
-          <div className="report-meta mono">
-            <span>Product: {shipment.name}</span>
-            <span className="report-meta-sep">·</span>
-            <span>Generated: {generatedAt}</span>
-            <span className="report-meta-sep">·</span>
-            <span>Framework: {shipment.complianceFramework}</span>
+        <div className="page-header report-header">
+          <div>
+            <div className="section-label mono">DELIVERY COMPLETE</div>
+            <h1 className="page-title">Final Delivery Report</h1>
+            <div className="report-meta mono">
+              <span>Product: {shipment.name}</span>
+              <span className="report-meta-sep">·</span>
+              <span>Generated: {generatedAt}</span>
+              <span className="report-meta-sep">·</span>
+              <span>Framework: {shipment.complianceFramework}</span>
+            </div>
           </div>
+          <button className="btn-primary report-export-btn report-no-print" onClick={exportPdf}>
+            Export PDF
+          </button>
         </div>
 
         {/* Overall status card */}
@@ -293,7 +326,7 @@ export default function FinalReport({ data, shipment: rawShipment, shipmentId, o
         </div>
 
         <div className="report-footer">
-          <button className="btn-ghost" onClick={onRestart}>
+          <button className="btn-ghost report-no-print" onClick={onRestart}>
             ← Start New Shipment
           </button>
         </div>

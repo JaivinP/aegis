@@ -8,15 +8,16 @@ export default function ReportPage() {
   const location = useLocation()
   const navigate = useNavigate()
   const [data, setData] = useState(location.state || null)
-  const [shipment, setShipment] = useState(null)
+  const [shipment, setShipment] = useState(location.state?.shipment || null)
   const [loading, setLoading] = useState(!location.state)
   const [error, setError] = useState(null)
 
   useEffect(() => {
+    if (shipment) return
     getShipment(id)
       .then(setShipment)
       .catch((e) => setError(e.message))
-  }, [id])
+  }, [id]) // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     if (data) return

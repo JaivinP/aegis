@@ -2576,6 +2576,17 @@
 }
 
 /* ── Final Report ── */
+.report-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 1.5rem;
+}
+
+.report-export-btn {
+  white-space: nowrap;
+}
+
 .report-meta {
   display: flex;
   gap: 0.75rem;
@@ -2860,6 +2871,152 @@
   margin-top: 2rem;
 }
 
+@media (max-width: 760px) {
+  .report-header {
+    flex-direction: column;
+  }
+
+  .report-export-btn {
+    width: 100%;
+    text-align: center;
+  }
+}
+
+@media print {
+  @page {
+    margin: 0.55in;
+  }
+
+  body * {
+    visibility: hidden;
+  }
+
+  .report-print-scope,
+  .report-print-scope *,
+  .kb-drawer-print-scope,
+  .kb-drawer-print-scope * {
+    visibility: visible;
+  }
+
+  .report-print-scope {
+    position: absolute;
+    inset: 0 auto auto 0;
+    width: 100%;
+    min-height: auto;
+    padding-top: 0;
+    background: #ffffff;
+    color: #111827;
+  }
+
+  .kb-drawer-print-scope {
+    position: absolute !important;
+    inset: 0 auto auto 0 !important;
+    width: 100% !important;
+    max-width: none !important;
+    height: auto !important;
+    min-height: auto !important;
+    background: #ffffff !important;
+    border: 0 !important;
+    box-shadow: none !important;
+    color: #111827 !important;
+  }
+
+  .report-print-scope .page-inner {
+    max-width: none;
+    padding: 0;
+  }
+
+  .report-no-print,
+  .report-no-print *,
+  .kb-drawer-print-scope .kb-close-btn,
+  .kb-drawer-print-scope .kb-drawer-actions,
+  .kb-drawer-print-scope .kb-drawer-footer {
+    display: none !important;
+  }
+
+  .report-print-scope,
+  .report-print-scope *,
+  .kb-drawer-print-scope,
+  .kb-drawer-print-scope * {
+    color-adjust: exact;
+    print-color-adjust: exact;
+    -webkit-print-color-adjust: exact;
+  }
+
+  .report-print-scope .page-header {
+    margin-bottom: 1.25rem;
+  }
+
+  .report-print-scope .section-label,
+  .report-print-scope .report-section-title,
+  .report-print-scope .report-agent-handle,
+  .report-print-scope .report-agent-section-label,
+  .kb-drawer-print-scope .kb-drawer-title,
+  .kb-drawer-print-scope .kb-drawer-section-title {
+    color: #047857;
+  }
+
+  .report-print-scope .page-title {
+    color: #111827;
+    font-size: 24pt;
+  }
+
+  .report-print-scope .report-meta,
+  .report-print-scope .report-agent-command,
+  .report-print-scope .report-agent-output,
+  .report-print-scope .report-agent-section p,
+  .report-print-scope .report-timeline-label,
+  .kb-drawer-print-scope .kb-drawer-row-value,
+  .kb-drawer-print-scope .kb-drawer-recommendation {
+    color: #374151;
+  }
+
+  .kb-drawer-print-scope .kb-drawer-id,
+  .kb-drawer-print-scope .kb-drawer-row-label {
+    color: #6b7280;
+  }
+
+  .report-print-scope .report-status-card,
+  .report-print-scope .report-grid,
+  .report-print-scope .report-stat,
+  .report-print-scope .report-agent-block,
+  .report-print-scope .report-agent-header,
+  .report-print-scope .report-agent-section,
+  .report-print-scope .report-timeline,
+  .report-print-scope .report-timeline-event,
+  .report-print-scope .report-footer {
+    border-color: #d1d5db !important;
+  }
+
+  .report-print-scope .report-status-card,
+  .report-print-scope .report-stat,
+  .report-print-scope .report-agent-block,
+  .report-print-scope .report-agent-section {
+    background: #ffffff !important;
+  }
+
+  .kb-drawer-print-scope .kb-drawer-recommendation {
+    background: #ffffff !important;
+    border-color: #d1d5db !important;
+  }
+
+  .report-print-scope .report-grid {
+    background: #d1d5db;
+  }
+
+  .report-print-scope .report-status-card,
+  .report-print-scope .report-grid,
+  .report-print-scope .report-agent-block,
+  .report-print-scope .report-timeline {
+    break-inside: avoid;
+  }
+
+  .report-print-scope .report-agent-section,
+  .report-print-scope .report-timeline-event {
+    break-inside: avoid;
+  }
+}
+
 /* ── Escalation docs ── */
 .escalation-section {
   margin-top: 3rem;
@@ -2950,6 +3107,17 @@
   /* border-radius: 8px; */
   background: rgba(239,68,68,0.05);
   margin-bottom: 1.5rem;
+}
+
+.db-error--floating {
+  position: fixed;
+  top: 72px;
+  right: 1rem;
+  z-index: 20;
+  max-width: min(460px, calc(100vw - 2rem));
+  margin-bottom: 0;
+  background: rgba(28, 12, 14, 0.92);
+  backdrop-filter: blur(8px);
 }
 
 .db-empty {

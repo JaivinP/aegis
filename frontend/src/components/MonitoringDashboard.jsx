@@ -197,6 +197,8 @@ export default function MonitoringDashboard({ shipment: rawShipment, shipmentId:
   const sensorsRef = useRef(sensors)
   const analysisRef = useRef(analysis)
   const incidentActiveRef = useRef(false)
+  const activeAgentEventRef = useRef(activeAgentEvent)
+  const agentLogRef = useRef(agentLog)
   // Live anomaly detection refs
   const prevLiveDataRef = useRef(null)
   const lastAiTriggerRef = useRef(0)
@@ -208,6 +210,8 @@ export default function MonitoringDashboard({ shipment: rawShipment, shipmentId:
   useEffect(() => { sensorsRef.current = sensors }, [sensors])
   useEffect(() => { analysisRef.current = analysis }, [analysis])
   useEffect(() => { incidentActiveRef.current = incidentActive }, [incidentActive])
+  useEffect(() => { activeAgentEventRef.current = activeAgentEvent }, [activeAgentEvent])
+  useEffect(() => { agentLogRef.current = agentLog }, [agentLog])
   useEffect(() => { aiRunningRef.current = activeAgentEvent?.status === 'ANALYZING' }, [activeAgentEvent])
 
   useEffect(() => {
@@ -552,16 +556,17 @@ export default function MonitoringDashboard({ shipment: rawShipment, shipmentId:
   }
 
   function handleEndDelivery() {
-    const resolvedLog = activeAgentEvent
-      ? [{ ...activeAgentEvent, status: 'RESOLVED', resolvedAt: new Date().toISOString() }, ...agentLog]
-      : agentLog
+    const currentAgentEvent = activeAgentEventRef.current
+    const resolvedLog = currentAgentEvent
+      ? [{ ...currentAgentEvent, status: 'RESOLVED', resolvedAt: new Date().toISOString() }, ...agentLogRef.current]
+      : agentLogRef.current
     onEndDelivery({
-      sensors,
-      sensorHistory,
-      analysis,
-      timeline,
-      incidentActive,
-      activeAgentEvent,
+      sensors: sensorsRef.current,
+      sensorHistory: sensorHistoryRef.current,
+      analysis: analysisRef.current,
+      timeline: timelineRef.current,
+      incidentActive: incidentActiveRef.current,
+      activeAgentEvent: currentAgentEvent,
       agentLog: resolvedLog,
     })
   }
