@@ -4,9 +4,16 @@ import { listShipmentTypes, createShipmentType, deleteShipmentType, createShipme
 
 const CATEGORIES = ['pharmaceutical', 'food', 'biologic', 'custom']
 
+const EMOJI_TYPES = {
+  medicine: { label: 'Medicine', emoji: '💊' },
+  biology: { label: 'Biology', emoji: '🧬' },
+  produce: { label: 'Produce', emoji: '🥬' },
+  other: { label: 'Other', emoji: '📦' },
+}
+
 const EMPTY_FORM = {
   productName: '',
-  icon: '📦',
+  iconType: 'other',
   origin: '',
   destination: '',
   tempMin: '',
@@ -20,7 +27,7 @@ const EMPTY_FORM = {
 
 const EMPTY_TYPE_FORM = {
   name: '',
-  icon: '📦',
+  iconType: 'other',
   category: 'pharmaceutical',
   tempMin: '',
   tempMax: '',
@@ -38,7 +45,7 @@ function genId(prefix) {
 function typeToForm(t) {
   return {
     productName: t.name,
-    icon: t.icon || '📦',
+    iconType: t.iconType || 'other',
     origin: '',
     destination: '',
     tempMin: t.safeTempRange?.min ?? '',
@@ -88,7 +95,7 @@ export default function NewShipment() {
       const payload = {
         shipmentTypeId: genId('TYP'),
         name: typeForm.name,
-        icon: typeForm.icon,
+        iconType: typeForm.iconType,
         category: typeForm.category,
         safeTempRange: {
           min: parseFloat(typeForm.tempMin) || 0,
@@ -126,7 +133,7 @@ export default function NewShipment() {
         shipmentId,
         shipmentTypeId: selectedTypeId || null,
         productName: form.productName,
-        icon: form.icon,
+        iconType: form.iconType,
         origin: form.origin,
         destination: form.destination,
         tempMin: form.tempMin !== '' ? parseFloat(form.tempMin) : null,
@@ -187,8 +194,12 @@ export default function NewShipment() {
                   <input className="form-input" required placeholder="e.g. mRNA Vaccine" {...typeField('name')} />
                 </div>
                 <div className="form-group">
-                  <label className="form-label mono">ICON (emoji)</label>
-                  <input className="form-input" placeholder="💉" {...typeField('icon')} />
+                  <label className="form-label mono">EMOJI TYPE</label>
+                  <select className="form-input" {...typeField('iconType')}>
+                    {Object.entries(EMOJI_TYPES).map(([key, { label, emoji }]) => (
+                      <option key={key} value={key}>{emoji} {label}</option>
+                    ))}
+                  </select>
                 </div>
                 <div className="form-group">
                   <label className="form-label mono">CATEGORY</label>
@@ -247,7 +258,7 @@ export default function NewShipment() {
                   type="button"
                 >
                   <div className="type-card-top">
-                    <span className="type-card-icon">{t.icon || '📦'}</span>
+                    <span className="type-card-icon">{EMOJI_TYPES[t.iconType]?.emoji || '📦'}</span>
                     <button
                       className="type-card-delete"
                       onClick={(e) => handleDeleteType(e, t.shipmentTypeId)}
@@ -279,8 +290,12 @@ export default function NewShipment() {
               <input className="form-input" required placeholder="e.g. Insulin Glargine 100U/ML" {...field('productName')} />
             </div>
             <div className="form-group">
-              <label className="form-label mono">ICON (emoji)</label>
-              <input className="form-input" placeholder="💉" {...field('icon')} />
+              <label className="form-label mono">EMOJI TYPE</label>
+              <select className="form-input" {...field('iconType')}>
+                {Object.entries(EMOJI_TYPES).map(([key, { label, emoji }]) => (
+                  <option key={key} value={key}>{emoji} {label}</option>
+                ))}
+              </select>
             </div>
             <div className="form-group">
               <label className="form-label mono">ORIGIN</label>

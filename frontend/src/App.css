@@ -2756,6 +2756,57 @@
   line-height: 1.7;
 }
 
+.report-agent-sections {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0;
+}
+
+.report-agent-section {
+  padding: 1rem 1.1rem;
+  border-right: 1px solid var(--border);
+  border-bottom: 1px solid var(--border);
+  min-width: 0;
+}
+
+.report-agent-section:nth-child(2n) {
+  border-right: 0;
+}
+
+.report-agent-section:nth-last-child(-n + 2) {
+  border-bottom: 0;
+}
+
+.report-agent-section-label {
+  color: var(--teal);
+  font-size: 0.66rem;
+  letter-spacing: 0.1em;
+  margin-bottom: 0.45rem;
+}
+
+.report-agent-section p {
+  margin: 0;
+  color: var(--text-dim);
+  font-size: 0.83rem;
+  line-height: 1.65;
+}
+
+@media (max-width: 760px) {
+  .report-agent-sections {
+    grid-template-columns: 1fr;
+  }
+
+  .report-agent-section,
+  .report-agent-section:nth-child(2n) {
+    border-right: 0;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .report-agent-section:last-child {
+    border-bottom: 0;
+  }
+}
+
 .report-recommendation {
   border: 1px solid;
   /* border-radius: 10px; */

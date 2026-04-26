@@ -8,6 +8,73 @@ function getOverallStatus(viabilityScore) {
   return 'COMPROMISED'
 }
 
+function formatDuration(ms) {
+  if (!Number.isFinite(ms) || ms <= 0) return '0s'
+  const totalSeconds = Math.round(ms / 1000)
+  const minutes = Math.floor(totalSeconds / 60)
+  const seconds = totalSeconds % 60
+  return minutes > 0 ? `${minutes}m ${seconds}s` : `${seconds}s`
+}
+
+function buildComplianceStats({ history = [], sensors, shipment }) {
+  const samples = [
+    ...history
+      .filter((point) => Number.isFinite(Number(point.temperature)))
+      .map((point) => ({
+        ts: Number(point.ts) || new Date(point.time || point.timestamp || Date.now()).getTime(),
+        temperature: Number(point.temperature),
+        humidity: Number(point.humidity),
+      })),
+    {
+      ts: Date.now(),
+      temperature: Number(sensors.temperature),
+      humidity: Number(sensors.humidity),
+    },
+  ].filter((point) => Number.isFinite(point.temperature))
+
+  const tempSamples = samples.filter((point) => Number.isFinite(point.temperature))
+  const humiditySamples = samples.filter((point) => Number.isFinite(point.humidity))
+  const tempInRange = tempSamples.filter(
+    (point) => point.temperature >= shipment.tempMin && point.temperature <= shipment.tempMax,
+  ).length
+  const tempCompliancePct = tempSamples.length
+    ? (tempInRange / tempSamples.length) * 100
+    : null
+
+  let outsideMs = 0
+  for (let i = 1; i < tempSamples.length; i += 1) {
+    const previous = tempSamples[i - 1]
+    const current = tempSamples[i]
+    const delta = current.ts - previous.ts
+    if (
+      Number.isFinite(delta) &&
+      delta > 0 &&
+      (previous.temperature < shipment.tempMin || previous.temperature > shipment.tempMax)
+    ) {
+      outsideMs += delta
+    }
+  }
+
+  const maxTempValue = tempSamples.length
+    ? Math.max(...tempSamples.map((point) => point.temperature))
+    : Number(sensors.temperature)
+
+  let humidityBreachEvents = 0
+  let wasOutsideHumidity = false
+  humiditySamples.forEach((point) => {
+    const outside = point.humidity < shipment.humidityMin || point.humidity > shipment.humidityMax
+    if (outside && !wasOutsideHumidity) humidityBreachEvents += 1
+    wasOutsideHumidity = outside
+  })
+
+  return {
+    tempCompliancePct,
+    timeOutsideRange: formatDuration(outsideMs),
+    maxTemp: Number.isFinite(maxTempValue) ? `${maxTempValue.toFixed(1)}°C` : 'Not available',
+    humidityBreachEvents,
+  }
+}
+
 const STATUS_STYLES = {
   SAFE: {
     color: 'var(--green)',
@@ -43,19 +110,17 @@ function normalizeShipment(s) {
 
 export default function FinalReport({ data, shipment: rawShipment, shipmentId, onRestart }) {
   const shipment = normalizeShipment(rawShipment)
-  const { sensors, analysis, timeline, incidentActive } = data
+  const { sensors, sensorHistory, analysis, timeline, incidentActive } = data
   const overallStatus = getOverallStatus(analysis.viabilityScore)
   const style = STATUS_STYLES[overallStatus]
   const [responseOutput, setResponseOutput] = useState(null)
   const [agentError, setAgentError] = useState(null)
 
-  // Mock compliance stats derived from incident state
-  const tempCompliancePct = incidentActive ? 78.4 : 99.2
-  const timeOutsideRange = incidentActive ? '3m 42s' : '0s'
-  const maxTemp = incidentActive
-    ? `${(shipment.tempMax + 1.8).toFixed(1)}°C`
-    : `${(shipment.tempNominal + 0.3).toFixed(1)}°C`
-  const humidityBreachEvents = incidentActive ? 1 : 0
+  const complianceStats = buildComplianceStats({
+    history: sensorHistory,
+    sensors,
+    shipment,
+  })
 
   const generatedAt = new Date().toLocaleString('en-US', {
     month: 'short',
@@ -92,6 +157,7 @@ export default function FinalReport({ data, shipment: rawShipment, shipmentId, o
         humidityMax: shipment.humidityMax,
       },
       currentSensors: sensors,
+      recentHistory: sensorHistory || [],
       analysis,
       incidentActive,
       activeAgentEvent: data.activeAgentEvent,
@@ -180,15 +246,19 @@ export default function FinalReport({ data, shipment: rawShipment, shipmentId, o
         <div className="report-grid">
           <ReportStat
             label="Temperature Compliance"
-            value={`${tempCompliancePct}%`}
-            alert={tempCompliancePct < 95}
+            value={
+              complianceStats.tempCompliancePct == null
+                ? 'Not available'
+                : `${complianceStats.tempCompliancePct.toFixed(1)}%`
+            }
+            alert={complianceStats.tempCompliancePct != null && complianceStats.tempCompliancePct < 95}
           />
           <ReportStat
             label="Time Outside Safe Range"
-            value={timeOutsideRange}
-            alert={timeOutsideRange !== '0s'}
+            value={complianceStats.timeOutsideRange}
+            alert={complianceStats.timeOutsideRange !== '0s'}
           />
-          <ReportStat label="Max Temperature Reached" value={maxTemp} />
+          <ReportStat label="Max Temperature Reached" value={complianceStats.maxTemp} />
           <ReportStat
             label="Shock Events"
             value={String(sensors.shockCount)}
@@ -196,8 +266,8 @@ export default function FinalReport({ data, shipment: rawShipment, shipmentId, o
           />
           <ReportStat
             label="Humidity Breach Events"
-            value={String(humidityBreachEvents)}
-            alert={humidityBreachEvents > 0}
+            value={String(complianceStats.humidityBreachEvents)}
+            alert={complianceStats.humidityBreachEvents > 0}
           />
           <ReportStat
             label="Seal Status at Delivery"
@@ -265,6 +335,8 @@ function ReportStat({ label, value, alert }) {
 }
 
 function AgentReportBlock({ entry }) {
+  const sections = entry.sections || []
+
   return (
     <div className="report-agent-block">
       <div className="report-agent-header">
@@ -274,7 +346,18 @@ function AgentReportBlock({ entry }) {
         </div>
         <span className="mono report-agent-status">{entry.status}</span>
       </div>
-      <pre className="report-agent-output">{entry.body}</pre>
+      {sections.length > 0 ? (
+        <div className="report-agent-sections">
+          {sections.map((section) => (
+            <section className="report-agent-section" key={section.label}>
+              <div className="mono report-agent-section-label">{section.label}</div>
+              <p>{section.value}</p>
+            </section>
+          ))}
+        </div>
+      ) : (
+        <pre className="report-agent-output">{entry.body}</pre>
+      )}
     </div>
   )
 }

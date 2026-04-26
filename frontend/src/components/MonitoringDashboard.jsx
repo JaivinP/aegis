@@ -550,6 +550,7 @@ export default function MonitoringDashboard({ shipment: rawShipment, shipmentId:
       : agentLog
     onEndDelivery({
       sensors,
+      sensorHistory,
       analysis,
       timeline,
       incidentActive,

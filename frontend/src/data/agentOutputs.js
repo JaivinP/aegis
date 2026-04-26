@@ -14,8 +14,18 @@ export const AGENTS = {
 }
 
 function matchSection(text, label) {
-  const pattern = new RegExp(`${label}:?\\s*([\\s\\S]*?)(?=\\n[A-Z][A-Z ]+:|$)`, 'i')
+  const escapedLabel = label.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+  const pattern = new RegExp(`${escapedLabel}:?\\s*([\\s\\S]*?)(?=\\n[A-Z][A-Z -]+:|$)`, 'i')
   return text.match(pattern)?.[1]?.trim() || ''
+}
+
+function parseSections(text, labels) {
+  return labels
+    .map((label) => ({
+      label,
+      value: matchSection(text, label),
+    }))
+    .filter((section) => section.value)
 }
 
 function parseConfidence(text) {
@@ -47,11 +57,21 @@ export function createNarrativeEventFromAgentResponse({ response, shipmentId }) 
 }
 
 export function createResponseReportFromAgentResponse({ response, shipmentId }) {
+  const text = response.text || ''
+
   return {
     agent: AGENTS.response,
     command: `Generate incident response package for shipment ${shipmentId}`,
     status: 'DRAFTED',
-    body: response.text || '',
+    body: text,
+    sections: parseSections(text, [
+      'DISPOSITION',
+      'INCIDENT SUMMARY',
+      'SENSOR DATA',
+      'AUTONOMOUS RESPONSE DRAFTS',
+      'RECOMMENDED FOLLOW-UP',
+      'INTEGRITY ASSESSMENT',
+    ]),
     generatedAt: response.generatedAt || new Date().toISOString(),
   }
 }
