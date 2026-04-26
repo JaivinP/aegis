@@ -3441,7 +3441,7 @@
 .type-card-name {
   font-size: 0.85rem;
   font-weight: 700;
-  color: white;
+  color: var(--text);
 }
 
 .type-card-temp {
