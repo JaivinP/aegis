@@ -34,3 +34,9 @@ export const saveReport = (shipmentId, data) =>
   req('POST', `/shipments/${shipmentId}/reports`, data)
 export const getLatestReport = (shipmentId) =>
   req('GET', `/shipments/${shipmentId}/reports/latest`)
+
+// Agent bridge
+export const callNarrativeAgent = (data) =>
+  req('POST', '/agents/narrative/analyze', data)
+export const callResponseAgent = (data) =>
+  req('POST', '/agents/response/report', data)

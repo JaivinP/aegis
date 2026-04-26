@@ -227,6 +227,128 @@ decision depends on your output. Keep total response under 150 words."""
     return response.choices[0].message.content
 
 
+def build_context_from_payload(payload):
+    shipment = payload.get("shipment", {})
+    sensors = payload.get("currentSensors", {})
+    thresholds = payload.get("thresholds", {})
+    route = payload.get("route", {})
+    history = payload.get("recentHistory") or []
+    timeline = payload.get("timeline") or []
+    incident = payload.get("incident") or {}
+
+    temperatures = [r.get("temperature") for r in history if r.get("temperature") is not None]
+    humidities = [r.get("humidity") for r in history if r.get("humidity") is not None]
+    current_temp = sensors.get("temperature", shipment.get("tempNominal", 4.1))
+    current_humidity = sensors.get("humidity", shipment.get("humidityNominal", 43))
+    temp_baseline = temperatures[:20] or [shipment.get("tempNominal", current_temp)]
+    humidity_baseline = humidities[:20] or [shipment.get("humidityNominal", current_humidity)]
+    temp_mean = statistics.mean(temp_baseline)
+    humidity_mean = statistics.mean(humidity_baseline)
+    temp_std = max(0.1, statistics.stdev(temp_baseline) if len(temp_baseline) > 1 else 0.1)
+    humidity_std = max(0.1, statistics.stdev(humidity_baseline) if len(humidity_baseline) > 1 else 0.1)
+    recent_temps = temperatures[-10:] or [current_temp]
+    temp_rate = (recent_temps[-1] - recent_temps[0]) / max(1, len(recent_temps)) if len(recent_temps) > 1 else 0
+
+    return {
+        "shipment_id": payload.get("shipmentId") or shipment.get("shipmentId") or os.getenv("SHIPMENT_ID", "AGS-0042"),
+        "cargo_type": shipment.get("productName") or shipment.get("name") or os.getenv("CARGO_TYPE", "Insulin Glargine 100U/ML"),
+        "compliance_framework": shipment.get("complianceFramework"),
+        "origin": route.get("origin") or shipment.get("origin"),
+        "destination": route.get("destination") or shipment.get("destination"),
+        "current_location": route.get("currentLocation") or sensors.get("location"),
+        "route_progress": route.get("routeProgress") or sensors.get("routeProgress"),
+        "thresholds": thresholds,
+        "current": {
+            "temperature": current_temp,
+            "humidity": current_humidity,
+            "shock": sensors.get("shockG", sensors.get("shockCount", 0)),
+            "shock_count": sensors.get("shockCount", 0),
+            "water_detected": sensors.get("waterExposure") not in [None, "DRY", False],
+            "seal_status": sensors.get("sealStatus"),
+            "battery": sensors.get("battery"),
+            "timestamp": payload.get("timestamp") or time.time(),
+        },
+        "baselines": {
+            "temp_mean": round(temp_mean, 2),
+            "temp_std": round(temp_std, 2),
+            "humid_mean": round(humidity_mean, 1),
+            "humid_std": round(humidity_std, 1),
+        },
+        "anomaly_scores": {
+            "temperature_zscore": round((current_temp - temp_mean) / temp_std, 2),
+            "humidity_zscore": round((current_humidity - humidity_mean) / humidity_std, 2),
+        },
+        "rates_of_change": {
+            "temp_per_interval": round(temp_rate, 3),
+        },
+        "prediction": {
+            "temp_in_15min": round(current_temp + temp_rate * 15, 2),
+        },
+        "recent_events": timeline[-10:],
+        "event_count": len(timeline),
+        "incident": incident,
+    }
+
+
+def generate_narrative_from_payload(payload):
+    context = build_context_from_payload(payload)
+    user_query = payload.get("query") or "Classify this shipment anomaly using the provided shipment, route, threshold, sensor, history, and timeline context."
+    prompt = f"""You are Aegis Narrative Agent, an autonomous shipment intelligence agent.
+
+Use the complete context below. Do not invent readings not present in the context.
+
+Shipment:
+- ID: {context['shipment_id']}
+- Cargo: {context['cargo_type']}
+- Compliance framework: {context.get('compliance_framework')}
+- Route: {context.get('origin')} to {context.get('destination')}
+- Current location: {context.get('current_location')}
+- Route progress: {context.get('route_progress')}%
+
+Thresholds:
+- Temperature: {context['thresholds'].get('tempMin')}°C to {context['thresholds'].get('tempMax')}°C
+- Humidity: {context['thresholds'].get('humidityMin')}% to {context['thresholds'].get('humidityMax')}%
+
+Current sensors:
+- Temperature: {context['current']['temperature']}°C
+- Humidity: {context['current']['humidity']}%
+- Shock count/G reading: {context['current']['shock_count']} / {context['current']['shock']}
+- Water detected: {context['current']['water_detected']}
+- Seal status: {context['current']['seal_status']}
+- Battery: {context['current']['battery']}%
+
+Derived analysis:
+- Temperature baseline: {context['baselines']['temp_mean']}°C ± {context['baselines']['temp_std']}°C
+- Humidity baseline: {context['baselines']['humid_mean']}% ± {context['baselines']['humid_std']}%
+- Temperature z-score: {context['anomaly_scores']['temperature_zscore']}
+- Humidity z-score: {context['anomaly_scores']['humidity_zscore']}
+- Temperature rate per reading: {context['rates_of_change']['temp_per_interval']}°C
+- Predicted temperature in 15 minutes: {context['prediction']['temp_in_15min']}°C
+
+Incident trigger:
+{context['incident']}
+
+Recent timeline:
+{context['recent_events']}
+
+User query: {user_query}
+
+Respond in this exact format:
+CLASSIFICATION: NOMINAL / ANOMALY / NEGLIGENCE / TAMPERING / CRITICAL
+CONFIDENCE: percentage
+ASSESSMENT: 2-3 sentences grounded in the readings
+COMPETING HYPOTHESIS: one alternative explanation with confidence
+RECOMMENDED ACTION: one immediate action
+PREDICTION: what happens in the next 15 minutes if no action is taken
+"""
+    response = llm.chat.completions.create(
+        model="asi1-mini",
+        max_tokens=450,
+        messages=[{"role": "user", "content": prompt}]
+    )
+    return response.choices[0].message.content
+
+
 def generate_summary(readings):
     temps = [r["temperature"] for r in readings]
     humids = [r["humidity"] for r in readings]

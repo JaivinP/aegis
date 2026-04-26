@@ -1,4 +1,6 @@
-import { createResponseFinalOutput } from '../data/agentOutputs'
+import { useEffect, useState } from 'react'
+import { callResponseAgent } from '../api'
+import { AGENTS, createResponseReportFromAgentResponse } from '../data/agentOutputs'
 
 function getOverallStatus(viabilityScore) {
   if (viabilityScore >= 90) return 'SAFE'
@@ -34,6 +36,8 @@ function normalizeShipment(s) {
     humidityMin: s.humidityMin ?? 30,
     humidityMax: s.humidityMax ?? 50,
     complianceFramework: s.complianceFramework || '',
+    origin: s.origin || 'Origin',
+    destination: s.destination || 'Destination',
   }
 }
 
@@ -42,13 +46,8 @@ export default function FinalReport({ data, shipment: rawShipment, shipmentId, o
   const { sensors, analysis, timeline, incidentActive } = data
   const overallStatus = getOverallStatus(analysis.viabilityScore)
   const style = STATUS_STYLES[overallStatus]
-  const responseOutput = createResponseFinalOutput({
-    shipment,
-    shipmentId,
-    sensors,
-    analysis,
-    incidentActive,
-  })
+  const [responseOutput, setResponseOutput] = useState(null)
+  const [agentError, setAgentError] = useState(null)
 
   // Mock compliance stats derived from incident state
   const tempCompliancePct = incidentActive ? 78.4 : 99.2
@@ -66,6 +65,53 @@ export default function FinalReport({ data, shipment: rawShipment, shipmentId, o
     minute: '2-digit',
     hour12: false,
   })
+
+  useEffect(() => {
+    const payload = {
+      shipmentId,
+      timestamp: new Date().toISOString(),
+      shipment: {
+        shipmentId,
+        productName: shipment.name,
+        complianceFramework: shipment.complianceFramework,
+        origin: shipment.origin,
+        destination: shipment.destination,
+        tempNominal: shipment.tempNominal,
+        humidityNominal: shipment.humidityNominal,
+      },
+      route: {
+        origin: shipment.origin,
+        destination: shipment.destination,
+        currentLocation: sensors.location,
+        routeProgress: sensors.routeProgress,
+      },
+      thresholds: {
+        tempMin: shipment.tempMin,
+        tempMax: shipment.tempMax,
+        humidityMin: shipment.humidityMin,
+        humidityMax: shipment.humidityMax,
+      },
+      currentSensors: sensors,
+      analysis,
+      incidentActive,
+      activeAgentEvent: data.activeAgentEvent,
+      narrativeAgentOutput: data.activeAgentEvent || data.agentLog?.[0] || null,
+      timeline: timeline.map((event) => ({
+        ...event,
+        time: new Date(event.time).toISOString(),
+      })),
+    }
+
+    setResponseOutput(null)
+    setAgentError(null)
+    callResponseAgent(payload)
+      .then((response) => {
+        setResponseOutput(createResponseReportFromAgentResponse({ response, shipmentId }))
+      })
+      .catch((error) => {
+        setAgentError(error.message)
+      })
+  }, [shipmentId]) // eslint-disable-line react-hooks/exhaustive-deps
 
   return (
     <div className="page-content">
@@ -161,7 +207,18 @@ export default function FinalReport({ data, shipment: rawShipment, shipmentId, o
         </div>
 
         <div className="report-section-title mono">RESPONSE AGENT REPORT</div>
-        <AgentReportBlock entry={responseOutput} />
+        {responseOutput ? (
+          <AgentReportBlock entry={responseOutput} />
+        ) : (
+          <AgentReportBlock
+            entry={{
+              agent: AGENTS.response,
+              command: `Generate incident response package for shipment ${shipmentId}`,
+              status: agentError ? 'ERROR' : 'RUNNING',
+              body: agentError || 'Calling Response Agent with shipment, route, thresholds, current sensors, analysis, narrative output, and timeline context...',
+            }}
+          />
+        )}
 
         {/* Chain-of-custody timeline */}
         <div className="report-section-title mono" style={{ marginTop: '2rem' }}>

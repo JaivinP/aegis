@@ -4,3 +4,7 @@ motor
 python-dotenv
 pymongo
 pydantic
+openai
+requests
+uagents
+uagents-core

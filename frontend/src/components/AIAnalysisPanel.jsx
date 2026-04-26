@@ -3,6 +3,8 @@ import { useState } from 'react'
 const STATUS_STYLES = {
   CRITICAL: { color: 'var(--red)', bg: 'rgba(239,68,68,0.08)', border: 'rgba(239,68,68,0.25)' },
   WARNING: { color: 'var(--amber)', bg: 'rgba(245,158,11,0.08)', border: 'rgba(245,158,11,0.25)' },
+  ANALYZING: { color: 'var(--teal)', bg: 'rgba(0,200,180,0.08)', border: 'rgba(0,200,180,0.25)' },
+  ERROR: { color: 'var(--red)', bg: 'rgba(239,68,68,0.08)', border: 'rgba(239,68,68,0.25)' },
   RESOLVED: { color: 'var(--green)', bg: 'rgba(34,197,94,0.08)', border: 'rgba(34,197,94,0.25)' },
 }
 

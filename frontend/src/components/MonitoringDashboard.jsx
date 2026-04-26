@@ -6,9 +6,10 @@ import TimelinePanel from './TimelinePanel'
 import SensorCharts from './SensorCharts'
 import PhotoRequestPanel from './PhotoRequestPanel'
 import ActiveShipmentSwitcher from './ActiveShipmentSwitcher'
-import { addEvent, updateShipment } from '../api'
+import { addEvent, callNarrativeAgent, updateShipment } from '../api'
 import {
-  createNarrativeIncidentOutput,
+  AGENTS,
+  createNarrativeEventFromAgentResponse,
 } from '../data/agentOutputs'
 import { useLiveData } from '../data/liveData'
 
@@ -73,6 +74,52 @@ function getInitialTimeline() {
   ]
 }
 
+function buildAgentPayload({ shipment, shipmentId, sensors, sensorHistory, timeline, analysis, incident }) {
+  return {
+    shipmentId,
+    timestamp: new Date().toISOString(),
+    query: `Analyze current anomaly for shipment ${shipmentId}.`,
+    shipment: {
+      shipmentId,
+      productName: shipment.name,
+      complianceFramework: shipment.complianceFramework,
+      origin: shipment.origin,
+      destination: shipment.destination,
+      tempNominal: shipment.tempNominal,
+      humidityNominal: shipment.humidityNominal,
+    },
+    route: {
+      origin: shipment.origin,
+      destination: shipment.destination,
+      currentLocation: sensors.location,
+      routeProgress: sensors.routeProgress,
+    },
+    thresholds: {
+      tempMin: shipment.tempMin,
+      tempMax: shipment.tempMax,
+      humidityMin: shipment.humidityMin,
+      humidityMax: shipment.humidityMax,
+    },
+    currentSensors: {
+      temperature: sensors.temperature,
+      humidity: sensors.humidity,
+      shockCount: sensors.shockCount,
+      waterExposure: sensors.waterExposure,
+      sealStatus: sensors.sealStatus,
+      battery: sensors.battery,
+      location: sensors.location,
+      routeProgress: sensors.routeProgress,
+    },
+    recentHistory: sensorHistory.slice(-60),
+    timeline: timeline.map((event) => ({
+      ...event,
+      time: new Date(event.time).toISOString(),
+    })),
+    analysis,
+    incident,
+  }
+}
+
 // Normalize DB shipment (productName, tempMin, etc.) to the shape the dashboard expects
 function normalizeShipment(s) {
   return {
@@ -85,6 +132,8 @@ function normalizeShipment(s) {
     humidityMax: s.humidityMax ?? 50,
     complianceFramework: s.complianceFramework || '',
     icon: s.icon || '📦',
+    origin: s.origin || 'Origin',
+    destination: s.destination || 'Destination',
   }
 }
 
@@ -108,6 +157,16 @@ export default function MonitoringDashboard({ shipment: rawShipment, shipmentId:
     humidity: shipment.humidityNominal,
   }])
   const incidentRef = useRef(false)
+  const sensorHistoryRef = useRef(sensorHistory)
+  const timelineRef = useRef(timeline)
+
+  useEffect(() => {
+    sensorHistoryRef.current = sensorHistory
+  }, [sensorHistory])
+
+  useEffect(() => {
+    timelineRef.current = timeline
+  }, [timeline])
 
   // Live nominal jitter every 2 seconds
   useEffect(() => {
@@ -196,19 +255,75 @@ export default function MonitoringDashboard({ shipment: rawShipment, shipmentId:
         temperature: parseFloat((shipment.tempMax + 1.8).toFixed(1)),
         humidity: Math.min(shipment.humidityMax + 18, 98),
       }
+      const t2 = new Date()
+      const incidentTimeline = [
+        ...timelineRef.current,
+        { time: t2, label: 'Narrative Agent analyzing anomaly', type: 'ai' },
+      ]
       setAnalysis(incidentAnalysis)
-      setActiveAgentEvent(createNarrativeIncidentOutput({
+      setActiveAgentEvent({
+        id: `narrative-loading-${Date.now()}`,
+        agent: AGENTS.narrative,
+        command: `Analyze anomaly on shipment ${shipmentId}`,
+        status: 'ANALYZING',
+        title: 'Narrative Agent analyzing anomaly',
+        classification: 'PENDING',
+        confidence: 0,
+        assessment: 'Sending shipment, route, threshold, current sensor, recent history, and timeline context to the Narrative Agent.',
+        hypothesis: 'Waiting for agent response.',
+        action: 'Waiting for agent response.',
+        prediction: 'Waiting for agent response.',
+        body: '',
+      })
+      setTimeline((prev) => [
+        ...prev,
+        { time: t2, label: 'Narrative Agent analyzing anomaly', type: 'ai' },
+      ])
+      postEvent(shipmentId, 'Narrative Agent analyzing anomaly', 'ai', 'WARNING', t2)
+
+      const payload = buildAgentPayload({
         shipment,
         shipmentId,
         sensors: incidentSensors,
+        sensorHistory: [
+          ...sensorHistoryRef.current,
+          { ts: Date.now(), temperature: incidentSensors.temperature, humidity: incidentSensors.humidity },
+        ],
+        timeline: incidentTimeline,
         analysis: incidentAnalysis,
-      }))
-      const t2 = new Date()
-      setTimeline((prev) => [
-        ...prev,
-        { time: t2, label: 'Narrative Agent classified incident — CRITICAL', type: 'alert' },
-      ])
-      postEvent(shipmentId, 'Narrative Agent classified incident — CRITICAL', 'ai', 'CRITICAL', t2)
+        incident: {
+          trigger: 'Shock event followed by water exposure, seal compromise, and temperature excursion',
+          severity: 'CRITICAL',
+          detectedAt: t2.toISOString(),
+        },
+      })
+
+      callNarrativeAgent(payload)
+        .then((response) => {
+          setActiveAgentEvent(createNarrativeEventFromAgentResponse({ response, shipmentId }))
+          const doneAt = new Date()
+          setTimeline((prev) => [
+            ...prev,
+            { time: doneAt, label: 'Narrative Agent returned incident classification', type: 'alert' },
+          ])
+          postEvent(shipmentId, 'Narrative Agent returned incident classification', 'ai', 'CRITICAL', doneAt)
+        })
+        .catch((error) => {
+          setActiveAgentEvent({
+            id: `narrative-error-${Date.now()}`,
+            agent: AGENTS.narrative,
+            command: `Analyze anomaly on shipment ${shipmentId}`,
+            status: 'ERROR',
+            title: 'Narrative Agent call failed',
+            classification: 'ERROR',
+            confidence: 0,
+            assessment: error.message,
+            hypothesis: 'No agent output returned.',
+            action: 'Check the database API, agent dependencies, and ASI1_API_KEY.',
+            prediction: 'No prediction available.',
+            body: error.message,
+          })
+        })
     }, 2800)
 
     // +4s: response documents drafted

@@ -52,6 +52,72 @@ Keep it under 200 words. Be specific and professional."""
     )
     return response.choices[0].message.content
 
+
+def generate_response_from_payload(payload):
+    shipment = payload.get("shipment", {})
+    sensors = payload.get("currentSensors", {})
+    thresholds = payload.get("thresholds", {})
+    route = payload.get("route", {})
+    analysis = payload.get("analysis", {})
+    narrative = payload.get("narrativeAgentOutput") or payload.get("activeAgentEvent") or {}
+    timeline = payload.get("timeline") or []
+    incident_active = payload.get("incidentActive", False)
+    shipment_id = payload.get("shipmentId") or shipment.get("shipmentId") or os.getenv("SHIPMENT_ID", "AGS-0042")
+    cargo = shipment.get("productName") or shipment.get("name") or os.getenv("CARGO_TYPE", "Insulin Glargine 100U/ML")
+
+    prompt = f"""You are Aegis Response Agent, an autonomous pharmaceutical shipment response system.
+
+Generate the final response report from this full shipment context. Do not invent readings.
+
+Shipment:
+- ID: {shipment_id}
+- Cargo: {cargo}
+- Compliance framework: {shipment.get('complianceFramework')}
+- Route: {route.get('origin') or shipment.get('origin')} to {route.get('destination') or shipment.get('destination')}
+- Current location: {route.get('currentLocation') or sensors.get('location')}
+- Route progress: {route.get('routeProgress') or sensors.get('routeProgress')}%
+
+Thresholds:
+- Temperature: {thresholds.get('tempMin')}°C to {thresholds.get('tempMax')}°C
+- Humidity: {thresholds.get('humidityMin')}% to {thresholds.get('humidityMax')}%
+
+Current sensors:
+- Temperature: {sensors.get('temperature')}°C
+- Humidity: {sensors.get('humidity')}%
+- Shock count: {sensors.get('shockCount')}
+- Water exposure: {sensors.get('waterExposure')}
+- Seal status: {sensors.get('sealStatus')}
+- Battery: {sensors.get('battery')}%
+
+Shipment analysis:
+- Incident active: {incident_active}
+- Viability score: {analysis.get('viabilityScore')}%
+- Degradation risk: {analysis.get('degradationRisk')}%
+- Status: {analysis.get('status')}
+
+Narrative Agent output:
+{narrative}
+
+Timeline:
+{timeline[-12:]}
+
+Respond with these sections:
+1. DISPOSITION
+2. INCIDENT SUMMARY
+3. SENSOR DATA AT INCIDENT OR DELIVERY
+4. AUTONOMOUS RESPONSE DRAFTS
+5. RECOMMENDED FOLLOW-UP
+6. INTEGRITY ASSESSMENT: PASS / FAIL / REQUIRES INSPECTION
+
+Keep it under 240 words. Use a professional compliance tone."""
+
+    response = llm.chat.completions.create(
+        model="asi1-mini",
+        max_tokens=500,
+        messages=[{"role": "user", "content": prompt}]
+    )
+    return response.choices[0].message.content
+
 def simulate_incident(query):
     """Simulate different incident types based on query keywords"""
     query_lower = query.lower()

@@ -1,12 +1,19 @@
 from datetime import datetime, timezone
 from pathlib import Path
+import sys
 from typing import Any, Dict
 
 from dotenv import load_dotenv
 from fastapi import FastAPI, HTTPException, status
+from fastapi.concurrency import run_in_threadpool
 from fastapi.middleware.cors import CORSMiddleware
 
 load_dotenv(Path(__file__).with_name(".env"))
+
+REPO_ROOT = Path(__file__).resolve().parents[1]
+AGENTS_DIR = REPO_ROOT / "agents"
+if str(AGENTS_DIR) not in sys.path:
+    sys.path.append(str(AGENTS_DIR))
 
 from db import (  # noqa: E402
     client,
@@ -44,6 +51,41 @@ async def require_doc(collection, query: dict, label: str) -> dict:
 async def health_check():
     await client.admin.command("ping")
     return {"ok": True, "database": "connected"}
+
+
+# --- Agent bridge ---
+
+
+@app.post("/agents/narrative/analyze")
+async def analyze_with_narrative_agent(payload: Dict[str, Any]):
+    try:
+        from narrative_agent import generate_narrative_from_payload
+
+        text = await run_in_threadpool(generate_narrative_from_payload, payload)
+        return {
+            "ok": True,
+            "agent": "aegis-narrative",
+            "text": text,
+            "generatedAt": datetime.now(timezone.utc).isoformat(),
+        }
+    except Exception as exc:
+        raise HTTPException(status_code=502, detail=f"narrative agent failed: {exc}") from exc
+
+
+@app.post("/agents/response/report")
+async def report_with_response_agent(payload: Dict[str, Any]):
+    try:
+        from response_agent import generate_response_from_payload
+
+        text = await run_in_threadpool(generate_response_from_payload, payload)
+        return {
+            "ok": True,
+            "agent": "aegis-response",
+            "text": text,
+            "generatedAt": datetime.now(timezone.utc).isoformat(),
+        }
+    except Exception as exc:
+        raise HTTPException(status_code=502, detail=f"response agent failed: {exc}") from exc
 
 
 # --- Shipment types ---
