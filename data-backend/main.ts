@@ -32,20 +32,20 @@ Deno.serve({ port: 8080 }, async (req) => {
 
         const entry = {
             acceleration: {
-                x: values[0],
-                y: values[1],
-                z: values[2],
+                x: values[1],
+                y: values[2],
+                z: values[3],
             },
             gyro: {
-                x: values[3],
-                y: values[4],
-                z: values[5],
+                x: values[4],
+                y: values[5],
+                z: values[6],
             },
-            shockDetected: values[6],
-            temperature: values[7],
-            humidity: values[8],
-            water: values[9],
-            light: values[10]
+            shockDetected: values[7],
+            temperature: values[8],
+            humidity: values[9],
+            water: values[10],
+            light: values[11]
         }
 
         data.push(entry)
