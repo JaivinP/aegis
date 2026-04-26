@@ -3,7 +3,7 @@ import SensorPanel from './SensorPanel'
 import AIAnalysisPanel from './AIAnalysisPanel'
 import RoutePanel from './RoutePanel'
 import TimelinePanel from './TimelinePanel'
-import { addEvent } from '../api'
+import { addEvent, updateShipment } from '../api'
 
 function postEvent(shipmentId, label, type, severity, time) {
   addEvent(shipmentId, {
@@ -116,6 +116,9 @@ export default function MonitoringDashboard({ shipment: rawShipment, shipmentId:
     if (incidentActive) return
     setIncidentActive(true)
     incidentRef.current = true
+
+    // Immediately flag incident in DB so dashboard + global poller can detect it
+    updateShipment(shipmentId, { incidentDetectedAt: new Date().toISOString() }).catch(() => {})
 
     const t0 = new Date()
 
