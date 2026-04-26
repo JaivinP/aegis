@@ -23,9 +23,7 @@ export default function CommandPalette() {
   const kb = useKeyboard()
   const {
     commandPaletteOpen, setCommandPaletteOpen,
-    setAiQueryOpen, setMissionControlOpen, setGeoModeOpen,
-    setSensorMatrixOpen, setReportDrawerOpen, setIncidentZoomOpen,
-    dashboardCtx,
+    openExclusive, dashboardCtx,
   } = kb
 
   const [query, setQuery] = useState('')
@@ -65,15 +63,15 @@ export default function CommandPalette() {
     setCommandPaletteOpen(false)
     setTimeout(() => {
       switch (cmd.id) {
-        case 'mission-control':   setMissionControlOpen(true); break
-        case 'geo-mode':          setGeoModeOpen(true);        break
-        case 'sensor-matrix':     setSensorMatrixOpen(true);   break
+        case 'mission-control':   openExclusive('mission-control'); break
+        case 'geo-mode':          openExclusive('geo-mode');        break
+        case 'sensor-matrix':     openExclusive('sensor-matrix');   break
         case 'dashboard':         navigate('/');               break
-        case 'ai-query':          setAiQueryOpen(true);        break
+        case 'ai-query':          openExclusive('ai-query');        break
         case 'stop-voice':        stopVoice().catch(() => {});  break
-        case 'report':            setReportDrawerOpen(true);   break
+        case 'report':            openExclusive('report-drawer');   break
         case 'incident-zoom':
-          if (dashboardCtx?.incidentActiveRef?.current) setIncidentZoomOpen(true)
+          if (dashboardCtx?.incidentActiveRef?.current) openExclusive('incident-zoom')
           break
         case 'trigger-incident':  dashboardCtx?.triggerIncident?.();  break
         case 'reset-nominal':     dashboardCtx?.resetToNominal?.();   break

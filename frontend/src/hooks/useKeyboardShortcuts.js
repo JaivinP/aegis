@@ -42,7 +42,7 @@ export function useKeyboardShortcuts() {
 
       // Show shortcut overlay while Shift is held alone (not while typing)
       if (e.key === 'Shift' && !e.ctrlKey && !e.altKey && !e.metaKey && !isTyping()) {
-        shiftTimer = setTimeout(() => kb.setShortcutOverlayOpen(true), 300)
+        shiftTimer = setTimeout(() => kb.openExclusive('shortcut-overlay'), 300)
         return
       }
 
@@ -53,37 +53,37 @@ export function useKeyboardShortcuts() {
       switch (e.key) {
         case '/':
           e.preventDefault()
-          kb.setCommandPaletteOpen(true)
+          kb.openExclusive('command-palette')
           break
         case '?':
           e.preventDefault()
-          kb.setAiQueryOpen(true)
+          kb.openExclusive('ai-query')
           break
         case 'm':
         case 'M':
           e.preventDefault()
-          kb.setMissionControlOpen((v) => !v)
+          kb.toggleExclusive('mission-control', kb.missionControlOpen)
           break
         case 'g':
         case 'G':
           e.preventDefault()
-          kb.setGeoModeOpen((v) => !v)
+          kb.toggleExclusive('geo-mode', kb.geoModeOpen)
           break
         case 's':
         case 'S':
           e.preventDefault()
-          kb.setSensorMatrixOpen((v) => !v)
+          kb.toggleExclusive('sensor-matrix', kb.sensorMatrixOpen)
           break
         case 'r':
         case 'R':
           e.preventDefault()
-          kb.setReportDrawerOpen((v) => !v)
+          kb.toggleExclusive('report-drawer', kb.reportDrawerOpen)
           break
         case 'z':
         case 'Z':
           e.preventDefault()
           if (kb.dashboardCtx?.incidentActiveRef?.current) {
-            kb.setIncidentZoomOpen((v) => !v)
+            kb.toggleExclusive('incident-zoom', kb.incidentZoomOpen)
           }
           break
         case 'x':
