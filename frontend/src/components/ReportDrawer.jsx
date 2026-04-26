@@ -1,6 +1,5 @@
 import { useState, useEffect } from 'react'
 import { useKeyboard } from '../context/KeyboardContext'
-import { calculateReportMetrics } from '../utils/reportMetrics'
 
 export default function ReportDrawer() {
   const { reportDrawerOpen, setReportDrawerOpen, dashboardCtx } = useKeyboard()
@@ -24,22 +23,14 @@ export default function ReportDrawer() {
 
   const analysis  = dashboardCtx?.analysisRef?.current
   const sensors   = dashboardCtx?.sensorsRef?.current
-  const sensorHistory = dashboardCtx?.sensorHistoryRef?.current || []
-  const timeline = dashboardCtx?.timelineRef?.current || []
   const ship      = dashboardCtx?.shipment
   const id        = dashboardCtx?.shipmentId || '—'
   const incident  = dashboardCtx?.incidentActiveRef?.current
-  const metrics = calculateReportMetrics({
-    shipment: ship,
-    sensors,
-    sensorHistory,
-    timeline,
-  })
 
-  const viab = metrics.viabilityScore
-  const deg  = metrics.degradationRisk
-  const seal = analysis?.sealBreachConfidence ?? (metrics.sealCompromised ? metrics.degradationRisk : 0)
-  const status = incident || metrics.viabilityScore < 90 ? 'COMPROMISED' : 'COMPLIANT'
+  const viab = analysis?.viabilityScore ?? 97.8
+  const deg  = analysis?.degradationRisk ?? 2.4
+  const seal = analysis?.sealBreachConfidence ?? 1.2
+  const status = incident ? 'COMPROMISED' : 'COMPLIANT'
   const statusColor = incident ? 'var(--red)' : 'var(--teal)'
 
   function approve() {

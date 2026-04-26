@@ -14,7 +14,6 @@ import {
 import { useLiveData } from '../data/liveData'
 import { useKeyboard } from '../context/KeyboardContext'
 import KeyboardHint from './KeyboardHint'
-import { calculateReportMetrics } from '../utils/reportMetrics'
 
 function postEvent(shipmentId, label, type, severity, time) {
   addEvent(shipmentId, {
@@ -49,29 +48,21 @@ function getNominalSensors(shipment) {
     shockCount: 0,
     waterExposure: 'DRY',
     sealStatus: 'INTACT',
-    battery: shipment.battery ?? 100,
-    location: shipment.currentLocation?.label || shipment.origin,
-    routeProgress: shipment.routeProgress ?? 0,
+    battery: 94,
+    location: 'Los Angeles, CA',
+    routeProgress: 18,
   }
 }
 
 function getNominalAnalysis(shipment) {
-  const sensors = getNominalSensors(shipment)
-  const metrics = calculateReportMetrics({
-    shipment,
-    sensors,
-    sensorHistory: [{ ts: Date.now(), temperature: sensors.temperature, humidity: sensors.humidity }],
-    timeline: [],
-  })
-
   return {
-    status: metrics.status,
-    viabilityScore: metrics.viabilityScore,
-    degradationRisk: metrics.degradationRisk,
+    status: 'NOMINAL',
+    viabilityScore: 97.8,
+    degradationRisk: 2.4,
     narrative: `Temperature stable within ${shipment.name.toLowerCase()} tolerance window. No evidence of seal breach. Humidity within acceptable range. All parameters consistent with expected cold-chain profile.`,
-    sealBreachConfidence: metrics.sealCompromised ? 100 : 0,
-    tamperingConfidence: metrics.sealCompromised ? 65 : 0,
-    negligenceConfidence: metrics.alertCount > 0 ? 50 : 0,
+    sealBreachConfidence: 1.2,
+    tamperingConfidence: 0.8,
+    negligenceConfidence: 2.1,
   }
 }
 
@@ -214,40 +205,6 @@ export default function MonitoringDashboard({ shipment: rawShipment, shipmentId:
   useEffect(() => { incidentActiveRef.current = incidentActive }, [incidentActive])
   useEffect(() => { aiRunningRef.current = activeAgentEvent?.status === 'ANALYZING' }, [activeAgentEvent])
 
-  // Reactively recompute viability/status/degradationRisk from live sensor data
-  useEffect(() => {
-    if (!liveData) return
-
-    const temp = Number(liveData.temperature)
-    const humidity = Number(liveData.humidity)
-    const water = Number(liveData.water)
-    const shock = Number(liveData.shockDetected)
-
-    const mergedSensors = {
-      ...sensorsRef.current,
-      ...(Number.isFinite(temp) ? { temperature: temp } : {}),
-      ...(Number.isFinite(humidity) ? { humidity } : {}),
-      ...(Number.isFinite(water) && water >= 30 ? { waterExposure: 'DETECTED' } : {}),
-      ...(Number.isFinite(shock) && shock > 0
-        ? { shockCount: Math.max(sensorsRef.current.shockCount || 0, Math.ceil(shock)) }
-        : {}),
-    }
-
-    const metrics = calculateReportMetrics({
-      shipment,
-      sensors: mergedSensors,
-      sensorHistory: sensorHistoryRef.current,
-      timeline: timelineRef.current,
-    })
-
-    setAnalysis((prev) => ({
-      ...prev,
-      status: metrics.status,
-      viabilityScore: metrics.viabilityScore,
-      degradationRisk: metrics.degradationRisk,
-    }))
-  }, [liveData]) // eslint-disable-line react-hooks/exhaustive-deps
-
   useEffect(() => {
     if (!liveData) return
     if (getLiveAnomalyReasons(liveData, shipment).length === 0) {
@@ -381,7 +338,6 @@ export default function MonitoringDashboard({ shipment: rawShipment, shipmentId:
       shipmentId,
       shipment,
       sensorsRef,
-      sensorHistoryRef,
       analysisRef,
       timelineRef,
       incidentActiveRef,
@@ -424,35 +380,22 @@ export default function MonitoringDashboard({ shipment: rawShipment, shipmentId:
     const t0 = new Date()
 
     // Immediate: physical event
-    const liveShock = Number(liveData?.shockDetected)
-    const shockCount = Number.isFinite(liveShock) && liveShock > 0 ? Math.ceil(liveShock) : 1
     setSensors((prev) => ({
       ...prev,
-      shockCount,
+      shockCount: 3,
       waterExposure: 'DETECTED',
       sealStatus: 'COMPROMISED',
     }))
-    const shockLabel = Number.isFinite(liveShock) && liveShock > 0
-      ? `Shock event detected - ${liveShock.toFixed(2)} impact recorded`
-      : 'Shock event detected - impact recorded'
     setTimeline((prev) => [
       ...prev,
-      { time: t0, label: shockLabel, type: 'alert' },
+      { time: t0, label: 'Shock event detected — 3.8g impact recorded', type: 'alert' },
     ])
-    postEvent(shipmentId, shockLabel, 'alert', 'CRITICAL', t0)
+    postEvent(shipmentId, 'Shock event detected — 3.8g impact recorded', 'alert', 'CRITICAL', t0)
 
     // +1.5s: thermal excursion
     setTimeout(() => {
-      const liveTemperature = Number(liveData?.temperature)
-      const liveHumidity = Number(liveData?.humidity)
-      const tempRange = Math.max(shipment.tempMax - shipment.tempMin, 1)
-      const humidityRange = Math.max(shipment.humidityMax - shipment.humidityMin, 1)
-      const excursionTemp = Number.isFinite(liveTemperature) && liveTemperature > shipment.tempMax
-        ? parseFloat(liveTemperature.toFixed(1))
-        : parseFloat((shipment.tempMax + tempRange * 0.25).toFixed(1))
-      const excursionHumidity = Number.isFinite(liveHumidity) && liveHumidity > shipment.humidityMax
-        ? Math.round(liveHumidity)
-        : Math.min(Math.round(shipment.humidityMax + humidityRange * 0.5), 100)
+      const excursionTemp = parseFloat((shipment.tempMax + 1.8).toFixed(1))
+      const excursionHumidity = Math.min(shipment.humidityMax + 18, 98)
       setSensorHistory((h) => [...h.slice(-59), { ts: Date.now(), temperature: excursionTemp, humidity: excursionHumidity }])
       setSensors((prev) => ({
         ...prev,
@@ -471,46 +414,29 @@ export default function MonitoringDashboard({ shipment: rawShipment, shipmentId:
 
     // +2.8s: AI classification
     setTimeout(() => {
-      const liveTemperature = Number(liveData?.temperature)
-      const liveHumidity = Number(liveData?.humidity)
-      const tempRange = Math.max(shipment.tempMax - shipment.tempMin, 1)
-      const humidityRange = Math.max(shipment.humidityMax - shipment.humidityMin, 1)
+      const incidentAnalysis = {
+        status: 'CRITICAL',
+        viabilityScore: 71.2,
+        degradationRisk: 31.4,
+        narrative:
+          'Shock event followed by humidity increase and accelerated warming. Probable seal compromise detected. Pattern is inconsistent with normal refrigeration drift. Multi-sensor correlation indicates physical mishandling. Escalation packet has been drafted.',
+        sealBreachConfidence: 87.3,
+        tamperingConfidence: 74.1,
+        negligenceConfidence: 62.8,
+      }
       const incidentSensors = {
         ...sensors,
-        shockCount,
+        shockCount: 3,
         waterExposure: 'DETECTED',
         sealStatus: 'COMPROMISED',
-        temperature: Number.isFinite(liveTemperature) && liveTemperature > shipment.tempMax
-          ? parseFloat(liveTemperature.toFixed(1))
-          : parseFloat((shipment.tempMax + tempRange * 0.25).toFixed(1)),
-        humidity: Number.isFinite(liveHumidity) && liveHumidity > shipment.humidityMax
-          ? Math.round(liveHumidity)
-          : Math.min(Math.round(shipment.humidityMax + humidityRange * 0.5), 100),
+        temperature: parseFloat((shipment.tempMax + 1.8).toFixed(1)),
+        humidity: Math.min(shipment.humidityMax + 18, 98),
       }
       const t2 = new Date()
       const incidentTimeline = [
         ...timelineRef.current,
         { time: t2, label: 'Narrative Agent analyzing anomaly', type: 'ai' },
       ]
-      const incidentMetrics = calculateReportMetrics({
-        shipment,
-        sensors: incidentSensors,
-        sensorHistory: [
-          ...sensorHistoryRef.current,
-          { ts: Date.now(), temperature: incidentSensors.temperature, humidity: incidentSensors.humidity },
-        ],
-        timeline: incidentTimeline,
-      })
-      const incidentAnalysis = {
-        status: incidentMetrics.status,
-        viabilityScore: incidentMetrics.viabilityScore,
-        degradationRisk: incidentMetrics.degradationRisk,
-        narrative:
-          'Shock event followed by humidity increase and accelerated warming. Probable seal compromise detected. Pattern is inconsistent with normal refrigeration drift. Multi-sensor correlation indicates physical mishandling. Escalation packet has been drafted.',
-        sealBreachConfidence: incidentMetrics.sealCompromised ? incidentMetrics.degradationRisk : 0,
-        tamperingConfidence: incidentMetrics.sealCompromised ? incidentMetrics.degradationRisk * 0.85 : 0,
-        negligenceConfidence: incidentMetrics.alertCount > 0 ? incidentMetrics.degradationRisk * 0.72 : 0,
-      }
       setAnalysis(incidentAnalysis)
       setActiveAgentEvent({
         id: `narrative-loading-${Date.now()}`,
@@ -619,24 +545,12 @@ export default function MonitoringDashboard({ shipment: rawShipment, shipmentId:
   }
 
   function handleEndDelivery() {
-    const liveTemperature = Number(liveData?.temperature)
-    const liveHumidity = Number(liveData?.humidity)
-    const liveWater = Number(liveData?.water)
-    const liveShock = Number(liveData?.shockDetected)
-    const finalSensors = {
-      ...sensors,
-      ...(Number.isFinite(liveTemperature) ? { temperature: parseFloat(liveTemperature.toFixed(1)) } : {}),
-      ...(Number.isFinite(liveHumidity) ? { humidity: Math.round(liveHumidity) } : {}),
-      ...(Number.isFinite(liveWater) && liveWater >= 30 ? { waterExposure: 'DETECTED' } : {}),
-      ...(Number.isFinite(liveShock) && liveShock > 0 ? { shockCount: Math.max(sensors.shockCount || 0, Math.ceil(liveShock)) } : {}),
-    }
     const resolvedLog = activeAgentEvent
       ? [{ ...activeAgentEvent, status: 'RESOLVED', resolvedAt: new Date().toISOString() }, ...agentLog]
       : agentLog
     onEndDelivery({
-      sensors: finalSensors,
+      sensors,
       analysis,
-      sensorHistory,
       timeline,
       incidentActive,
       activeAgentEvent,

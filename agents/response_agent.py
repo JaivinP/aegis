@@ -61,8 +61,6 @@ def generate_response_from_payload(payload):
     analysis = payload.get("analysis", {})
     narrative = payload.get("narrativeAgentOutput") or payload.get("activeAgentEvent") or {}
     timeline = payload.get("timeline") or []
-    report_findings = payload.get("reportFindings") or {}
-    issue_list = report_findings.get("issues") or []
     incident_active = payload.get("incidentActive", False)
     shipment_id = payload.get("shipmentId") or shipment.get("shipmentId") or os.getenv("SHIPMENT_ID", "AGS-0042")
     cargo = shipment.get("productName") or shipment.get("name") or os.getenv("CARGO_TYPE", "Insulin Glargine 100U/ML")
@@ -96,15 +94,6 @@ Shipment analysis:
 - Viability score: {analysis.get('viabilityScore')}%
 - Degradation risk: {analysis.get('degradationRisk')}%
 - Status: {analysis.get('status')}
-
-Exception register:
-- Issue count: {report_findings.get('issueCount')}
-- Response action count: {report_findings.get('actionCount')}
-- Temperature compliance: {report_findings.get('tempCompliancePct')}%
-- Time outside temperature range: {report_findings.get('timeOutsideRange')}
-- Observed temperature range: {report_findings.get('minTemp')}°C to {report_findings.get('maxTemp')}°C
-- Humidity breach events: {report_findings.get('humidityBreachEvents')}
-- Issues and actions: {issue_list}
 
 Narrative Agent output:
 {narrative}

@@ -1,7 +1,6 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { callResponseAgent } from '../api'
 import { AGENTS, createResponseReportFromAgentResponse } from '../data/agentOutputs'
-import { calculateReportMetrics } from '../utils/reportMetrics'
 
 function getOverallStatus(viabilityScore) {
   if (viabilityScore >= 90) return 'SAFE'
@@ -31,201 +30,34 @@ function normalizeShipment(s) {
   return {
     ...s,
     name: s.productName || s.name || 'Unknown',
-    tempNominal: s.tempNominal,
-    tempMin: s.tempMin,
-    tempMax: s.tempMax,
-    humidityNominal: s.humidityNominal,
-    humidityMin: s.humidityMin,
-    humidityMax: s.humidityMax,
+    tempNominal: s.tempNominal ?? 4.2,
+    tempMin: s.tempMin ?? 2,
+    tempMax: s.tempMax ?? 8,
+    humidityMin: s.humidityMin ?? 30,
+    humidityMax: s.humidityMax ?? 50,
     complianceFramework: s.complianceFramework || '',
     origin: s.origin || 'Origin',
     destination: s.destination || 'Destination',
   }
 }
 
-function asNumber(value) {
-  const number = Number(value)
-  return Number.isFinite(number) ? number : null
-}
-
-function formatDuration(seconds) {
-  if (!seconds) return '0s'
-  const mins = Math.floor(seconds / 60)
-  const secs = Math.round(seconds % 60)
-  if (mins === 0) return `${secs}s`
-  return `${mins}m ${String(secs).padStart(2, '0')}s`
-}
-
-function displayNumber(value, digits = 1, fallback = 'N/A') {
-  const number = asNumber(value)
-  return number === null ? fallback : number.toFixed(digits)
-}
-
-function formatIssueTime(time) {
-  if (!time) return 'Delivery'
-  const date = time instanceof Date ? time : new Date(time)
-  if (Number.isNaN(date.getTime())) return 'Delivery'
-  return date.toLocaleTimeString('en-US', {
-    hour: '2-digit',
-    minute: '2-digit',
-    second: '2-digit',
-    hour12: false,
-  })
-}
-
-function inferIssueCategory(label) {
-  const text = label.toLowerCase()
-  if (text.includes('temperature') || text.includes('thermal') || text.includes('cold')) return 'Temperature'
-  if (text.includes('humidity')) return 'Humidity'
-  if (text.includes('shock') || text.includes('impact')) return 'Shock'
-  if (text.includes('water')) return 'Water'
-  if (text.includes('seal') || text.includes('tamper') || text.includes('compromise')) return 'Integrity'
-  if (text.includes('deviation') || text.includes('quarantine') || text.includes('insurance') || text.includes('notification')) return 'Response'
-  return 'Anomaly'
-}
-
-function inferIssueSeverity(label, fallback = 'WARNING') {
-  const text = label.toLowerCase()
-  if (text.includes('critical') || text.includes('compromised') || text.includes('breach') || text.includes('shock') || text.includes('water')) return 'CRITICAL'
-  if (text.includes('drafted') || text.includes('prepared') || text.includes('opened')) return 'ACTION'
-  return fallback
-}
-
-function buildReportFindings({ data, shipment }) {
-  const sensorHistory = data.sensorHistory || []
-  const sensors = data.sensors || {}
-  const timeline = data.timeline || []
-  const metrics = calculateReportMetrics({ shipment, sensors, sensorHistory, timeline })
-  const issues = []
-  const seen = new Set()
-
-  const addIssue = (issue) => {
-    const key = `${issue.category}|${issue.detail}|${issue.time || ''}`
-    if (seen.has(key)) return
-    seen.add(key)
-    issues.push(issue)
-  }
-
-  timeline.forEach((event) => {
-    const label = event.label || ''
-    const isProblem = event.type === 'alert' || /anomaly|shock|impact|water|seal|compromis|breach|deviation|quarantine|insurance|notification/i.test(label)
-    if (!isProblem) return
-    addIssue({
-      time: event.time,
-      category: inferIssueCategory(label),
-      severity: inferIssueSeverity(label, event.type === 'alert' ? 'CRITICAL' : 'WARNING'),
-      detail: label,
-    })
-  })
-
-  const temperatures = sensorHistory
-    .map((reading) => asNumber(reading.temperature))
-    .filter((value) => value !== null)
-  const humidities = sensorHistory
-    .map((reading) => asNumber(reading.humidity))
-    .filter((value) => value !== null)
-
-  const currentTemp = asNumber(sensors.temperature)
-  const currentHumidity = asNumber(sensors.humidity)
-  if (currentTemp !== null) temperatures.push(currentTemp)
-  if (currentHumidity !== null) humidities.push(currentHumidity)
-
-  if (currentTemp !== null && asNumber(shipment.tempMin) !== null && asNumber(shipment.tempMax) !== null && (currentTemp < shipment.tempMin || currentTemp > shipment.tempMax)) {
-    addIssue({
-      time: new Date(),
-      category: 'Temperature',
-      severity: 'CRITICAL',
-      detail: `Delivery temperature ${currentTemp.toFixed(1)}C outside ${shipment.tempMin}-${shipment.tempMax}C range`,
-    })
-  }
-
-  if (currentHumidity !== null && asNumber(shipment.humidityMin) !== null && asNumber(shipment.humidityMax) !== null && (currentHumidity < shipment.humidityMin || currentHumidity > shipment.humidityMax)) {
-    addIssue({
-      time: new Date(),
-      category: 'Humidity',
-      severity: 'WARNING',
-      detail: `Delivery humidity ${currentHumidity.toFixed(0)}% outside ${shipment.humidityMin}-${shipment.humidityMax}% range`,
-    })
-  }
-
-  if ((sensors.shockCount || 0) > 0) {
-    addIssue({
-      time: new Date(),
-      category: 'Shock',
-      severity: 'CRITICAL',
-      detail: `${sensors.shockCount} shock event${sensors.shockCount === 1 ? '' : 's'} recorded by delivery`,
-    })
-  }
-
-  if (sensors.waterExposure && sensors.waterExposure !== 'DRY') {
-    addIssue({
-      time: new Date(),
-      category: 'Water',
-      severity: 'CRITICAL',
-      detail: `Water exposure status at delivery: ${sensors.waterExposure}`,
-    })
-  }
-
-  if (sensors.sealStatus && sensors.sealStatus !== 'INTACT') {
-    addIssue({
-      time: new Date(),
-      category: 'Integrity',
-      severity: 'CRITICAL',
-      detail: `Seal status at delivery: ${sensors.sealStatus}`,
-    })
-  }
-
-  return {
-    issues: issues.sort((a, b) => new Date(a.time || 0) - new Date(b.time || 0)),
-    issueCount: issues.filter((issue) => issue.severity !== 'ACTION').length,
-    actionCount: issues.filter((issue) => issue.severity === 'ACTION').length,
-    ...metrics,
-    timeOutsideRange: formatDuration(metrics.timeOutsideRangeSeconds),
-    maxTemp: metrics.maxTemp ?? (temperatures.length ? Math.max(...temperatures) : null),
-    minTemp: metrics.minTemp ?? (temperatures.length ? Math.min(...temperatures) : null),
-    maxHumidity: metrics.maxHumidity ?? (humidities.length ? Math.max(...humidities) : null),
-  }
-}
-
-function parseAgentSections(text) {
-  if (!text) return []
-  const lines = text.split('\n')
-  const sections = []
-  let current = { title: 'Response Summary', body: [] }
-
-  lines.forEach((line) => {
-    const heading = line.match(/^\s*(?:\d+\.\s*)?([A-Z][A-Z /-]{3,})(?::\s*(.*))?$/)
-    if (heading) {
-      if (current.body.join('\n').trim()) sections.push(current)
-      current = { title: heading[1].trim(), body: heading[2] ? [heading[2]] : [] }
-      return
-    }
-    current.body.push(line)
-  })
-
-  if (current.body.join('\n').trim()) sections.push(current)
-  return sections.length ? sections : [{ title: 'Response Summary', body: [text] }]
-}
-
 export default function FinalReport({ data, shipment: rawShipment, shipmentId, onRestart }) {
   const shipment = normalizeShipment(rawShipment)
   const { sensors, analysis, timeline, incidentActive } = data
+  const overallStatus = getOverallStatus(analysis.viabilityScore)
+  const style = STATUS_STYLES[overallStatus]
   const [responseOutput, setResponseOutput] = useState(null)
   const [agentError, setAgentError] = useState(null)
-  const reportFindings = useMemo(
-    () => buildReportFindings({ data, shipment }),
-    [data, shipment],
-  )
-  const reportStatus = getOverallStatus(reportFindings.viabilityScore)
-  const reportStyle = STATUS_STYLES[reportStatus]
 
-  const tempCompliancePct = reportFindings.tempCompliancePct
-  const timeOutsideRange = reportFindings.timeOutsideRange
-  const maxTemp = reportFindings.maxTemp === null ? 'N/A' : `${reportFindings.maxTemp.toFixed(1)}°C`
-  const humidityBreachEvents = reportFindings.humidityBreachEvents
+  // Mock compliance stats derived from incident state
+  const tempCompliancePct = incidentActive ? 78.4 : 99.2
+  const timeOutsideRange = incidentActive ? '3m 42s' : '0s'
+  const maxTemp = incidentActive
+    ? `${(shipment.tempMax + 1.8).toFixed(1)}°C`
+    : `${(shipment.tempNominal + 0.3).toFixed(1)}°C`
+  const humidityBreachEvents = incidentActive ? 1 : 0
 
-  const generatedAtSource = data.generatedAt || data.endedAt || new Date()
-  const generatedAt = new Date(generatedAtSource).toLocaleString('en-US', {
+  const generatedAt = new Date().toLocaleString('en-US', {
     month: 'short',
     day: 'numeric',
     year: 'numeric',
@@ -260,14 +92,8 @@ export default function FinalReport({ data, shipment: rawShipment, shipmentId, o
         humidityMax: shipment.humidityMax,
       },
       currentSensors: sensors,
-      analysis: {
-        ...analysis,
-        status: reportFindings.status,
-        viabilityScore: reportFindings.viabilityScore,
-        degradationRisk: reportFindings.degradationRisk,
-      },
-      incidentActive: incidentActive || reportFindings.issueCount > 0,
-      reportFindings,
+      analysis,
+      incidentActive,
       activeAgentEvent: data.activeAgentEvent,
       narrativeAgentOutput: data.activeAgentEvent || data.agentLog?.[0] || null,
       timeline: timeline.map((event) => ({
@@ -292,7 +118,7 @@ export default function FinalReport({ data, shipment: rawShipment, shipmentId, o
       <div className="page-inner">
         {/* Header */}
         <div className="page-header">
-          <div className="section-label mono">{data.incidentActive || reportFindings.issueCount > 0 ? 'DELIVERY ESCALATED' : 'DELIVERY COMPLETE'}</div>
+          <div className="section-label mono">DELIVERY COMPLETE</div>
           <h1 className="page-title">Final Delivery Report</h1>
           <div className="report-meta mono">
             <span>Product: {shipment.name}</span>
@@ -306,7 +132,7 @@ export default function FinalReport({ data, shipment: rawShipment, shipmentId, o
         {/* Overall status card */}
         <div
           className="report-status-card"
-          style={{ borderColor: reportStyle.border, background: reportStyle.bg }}
+          style={{ borderColor: style.border, background: style.bg }}
         >
           <div>
             <div
@@ -314,14 +140,14 @@ export default function FinalReport({ data, shipment: rawShipment, shipmentId, o
               style={{
                 fontSize: '0.6rem',
                 letterSpacing: '0.2em',
-                color: reportStyle.color,
+                color: style.color,
                 marginBottom: '0.5rem',
               }}
             >
               OVERALL SHIPMENT STATUS
             </div>
-            <div className="report-status-value" style={{ color: reportStyle.color }}>
-              {reportStatus}
+            <div className="report-status-value" style={{ color: style.color }}>
+              {overallStatus}
             </div>
           </div>
           <div className="report-status-scores">
@@ -332,8 +158,8 @@ export default function FinalReport({ data, shipment: rawShipment, shipmentId, o
               >
                 PRODUCT VIABILITY SCORE
               </span>
-              <span className="mono report-score-value" style={{ color: reportStyle.color }}>
-                {reportFindings.viabilityScore.toFixed(1)}%
+              <span className="mono report-score-value" style={{ color: style.color }}>
+                {analysis.viabilityScore.toFixed(1)}%
               </span>
             </div>
             <div className="report-score">
@@ -343,8 +169,8 @@ export default function FinalReport({ data, shipment: rawShipment, shipmentId, o
               >
                 ESTIMATED DEGRADATION RISK
               </span>
-              <span className="mono report-score-value" style={{ color: reportStyle.color }}>
-                {reportFindings.degradationRisk.toFixed(1)}%
+              <span className="mono report-score-value" style={{ color: style.color }}>
+                {analysis.degradationRisk.toFixed(1)}%
               </span>
             </div>
           </div>
@@ -354,7 +180,7 @@ export default function FinalReport({ data, shipment: rawShipment, shipmentId, o
         <div className="report-grid">
           <ReportStat
             label="Temperature Compliance"
-            value={`${displayNumber(tempCompliancePct)}%`}
+            value={`${tempCompliancePct}%`}
             alert={tempCompliancePct < 95}
           />
           <ReportStat
@@ -378,42 +204,6 @@ export default function FinalReport({ data, shipment: rawShipment, shipmentId, o
             value={sensors.sealStatus}
             alert={sensors.sealStatus !== 'INTACT'}
           />
-        </div>
-
-        <div className="report-section-title mono">EXCEPTION REGISTER</div>
-        <div className="report-issue-panel">
-          <div className="report-issue-summary">
-            <div>
-              <div className="mono report-stat-label">ISSUES FOUND</div>
-              <div className="mono report-issue-count">{reportFindings.issueCount}</div>
-            </div>
-            <div>
-              <div className="mono report-stat-label">RESPONSE ACTIONS</div>
-              <div className="mono report-issue-count">{reportFindings.actionCount}</div>
-            </div>
-            <div>
-              <div className="mono report-stat-label">TEMP RANGE OBSERVED</div>
-            <div className="mono report-issue-range">
-                {displayNumber(reportFindings.minTemp)}-{displayNumber(reportFindings.maxTemp)}°C
-              </div>
-            </div>
-          </div>
-          {reportFindings.issues.length > 0 ? (
-            <div className="report-issue-list">
-              {reportFindings.issues.map((issue, i) => (
-                <div key={`${issue.detail}-${i}`} className="report-issue-row">
-                  <span className={`mono report-issue-severity severity-${issue.severity.toLowerCase()}`}>
-                    {issue.severity}
-                  </span>
-                  <span className="mono report-issue-time">{formatIssueTime(issue.time)}</span>
-                  <span className="report-issue-category">{issue.category}</span>
-                  <span className="report-issue-detail">{issue.detail}</span>
-                </div>
-              ))}
-            </div>
-          ) : (
-            <div className="report-no-issues">No excursions, handling exceptions, or response actions were recorded.</div>
-          )}
         </div>
 
         <div className="report-section-title mono">RESPONSE AGENT REPORT</div>
@@ -475,12 +265,8 @@ function ReportStat({ label, value, alert }) {
 }
 
 function AgentReportBlock({ entry }) {
-  const sections = parseAgentSections(entry.body)
-  const isLoading = entry.status === 'RUNNING'
-  const isError = entry.status === 'ERROR'
-
   return (
-    <div className={`report-agent-block ${isError ? 'is-error' : ''}`}>
+    <div className="report-agent-block">
       <div className="report-agent-header">
         <div>
           <div className="mono report-agent-handle">{entry.agent.handle}</div>
@@ -488,24 +274,7 @@ function AgentReportBlock({ entry }) {
         </div>
         <span className="mono report-agent-status">{entry.status}</span>
       </div>
-      {isLoading ? (
-        <div className="report-agent-progress">
-          <div className="report-agent-spinner" />
-          <div>
-            <div className="report-agent-progress-title">Building response package</div>
-            <div className="report-agent-progress-copy">{entry.body}</div>
-          </div>
-        </div>
-      ) : (
-        <div className="report-agent-sections">
-          {sections.map((section, i) => (
-            <div key={`${section.title}-${i}`} className="report-agent-section">
-              <div className="mono report-agent-section-title">{section.title}</div>
-              <div className="report-agent-section-body">{section.body.join('\n').trim()}</div>
-            </div>
-          ))}
-        </div>
-      )}
+      <pre className="report-agent-output">{entry.body}</pre>
     </div>
   )
 }
