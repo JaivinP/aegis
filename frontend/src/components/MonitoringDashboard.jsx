@@ -57,7 +57,7 @@ function getNominalSensors(shipment) {
 function getNominalAnalysis(shipment) {
   return {
     status: 'NOMINAL',
-    viabilityScore: 97.8,
+    viabilityScore: 100.0,
     degradationRisk: 2.4,
     narrative: `Temperature stable within ${shipment.name.toLowerCase()} tolerance window. No evidence of seal breach. Humidity within acceptable range. All parameters consistent with expected cold-chain profile.`,
     sealBreachConfidence: 1.2,
@@ -97,7 +97,7 @@ function getLiveAnomalyReasons(liveData, shipment) {
 }
 
 function computeLiveViability(liveData, shipment, routeProgress) {
-  let score = 97.8
+  let score = 100.0
 
   if (!liveData) return score
 
@@ -108,35 +108,40 @@ function computeLiveViability(liveData, shipment, routeProgress) {
   const accel = liveData.acceleration
   const shock = accel ? Math.sqrt(accel.x ** 2 + accel.y ** 2 + accel.z ** 2) : 0
 
+  // Temperature: 1.2% per degree out of range, soft cap at 25%
   if (Number.isFinite(temperature)) {
     if (temperature < shipment.tempMin) {
-      score -= Math.min((shipment.tempMin - temperature) * 3, 20)
+      score -= Math.min((shipment.tempMin - temperature) * 1.2, 25)
     } else if (temperature > shipment.tempMax) {
-      score -= Math.min((temperature - shipment.tempMax) * 3, 20)
+      score -= Math.min((temperature - shipment.tempMax) * 1.2, 25)
     }
   }
 
+  // Humidity: 0.3% per unit out of range, soft cap at 12%
   if (Number.isFinite(humidity)) {
     if (humidity < shipment.humidityMin) {
-      score -= Math.min((shipment.humidityMin - humidity) * 0.5, 10)
+      score -= Math.min((shipment.humidityMin - humidity) * 0.3, 12)
     } else if (humidity > shipment.humidityMax) {
-      score -= Math.min((humidity - shipment.humidityMax) * 0.5, 10)
+      score -= Math.min((humidity - shipment.humidityMax) * 0.3, 12)
     }
   }
 
+  // Shock events: 2.5% per detected shock, cap at 12%
   if (Number.isFinite(shockDetected) && shockDetected > 0) {
-    score -= Math.min(shockDetected * 5, 15)
+    score -= Math.min(shockDetected * 2.5, 12)
   }
 
+  // Acceleration magnitude: proportional above 4g
   if (shock > 4) {
-    score -= 10
+    score -= Math.min((shock - 4) * 1.5, 8)
   }
 
+  // Water: 0.15% per unit above threshold, cap at 8%
   if (Number.isFinite(water) && water >= 30) {
-    score -= Math.min(water * 0.2, 10)
+    score -= Math.min((water - 30) * 0.15, 8)
   }
 
-  // Natural degradation as shipment travels further
+  // Natural degradation as shipment travels further (~2% total over full route)
   score -= (routeProgress || 0) * 0.02
 
   return parseFloat(Math.max(score, 0).toFixed(1))
