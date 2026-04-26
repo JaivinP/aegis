@@ -28,9 +28,9 @@ export default function SensorPanel({ sensors, shipment }) {
         />
         <SensorRow
           label="SHOCK EVENTS"
-          value={sensors.shockDetected === 0 ? 'SAFE' : 'DANGER' }
+          value={Math.sqrt(Math.pow(sensors.acceleration.x, 2) + Math.pow(sensors.acceleration.y, 2) + Math.pow(sensors.acceleration.z, 2)) < 4 ? 'SAFE' : 'DANGER' }
           subLabel="Threshold: 0 events"
-          status={sensors.shockDetected > 0 ? 'alert' : 'ok'}
+          status={Math.sqrt(Math.pow(sensors.acceleration.x, 2) + Math.pow(sensors.acceleration.y, 2) + Math.pow(sensors.acceleration.z, 2)) < 4 ? 'ok' : 'alert'}
         />
         <SensorRow
           label="WATER EXPOSURE"
