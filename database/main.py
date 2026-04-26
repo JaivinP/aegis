@@ -60,12 +60,23 @@ async def health_check():
 async def analyze_with_narrative_agent(payload: Dict[str, Any]):
     try:
         from narrative_agent import generate_narrative_from_payload
+        from voice_agent import alert_for_anomaly
 
         text = await run_in_threadpool(generate_narrative_from_payload, payload)
+        try:
+            audio_alert = await run_in_threadpool(alert_for_anomaly, payload, text)
+        except Exception as exc:
+            audio_alert = {
+                "triggered": True,
+                "ok": False,
+                "error": str(exc),
+            }
+
         return {
             "ok": True,
             "agent": "aegis-narrative",
             "text": text,
+            "audioAlert": audio_alert,
             "generatedAt": datetime.now(timezone.utc).isoformat(),
         }
     except Exception as exc:
