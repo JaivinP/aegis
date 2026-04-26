@@ -355,8 +355,10 @@ export default function MonitoringDashboard({ shipment: rawShipment, shipmentId:
       if (incidentRef.current) return
       setSensors((prev) => {
         const newProgress = Math.min(prev.routeProgress + 0.25, 95)
-        const newTemp = parseFloat((shipment.tempNominal + (Math.random() - 0.5) * 0.4).toFixed(1))
-        const newHumidity = Math.round(shipment.humidityNominal + (Math.random() - 0.5) * 3)
+        // const newTemp = parseFloat((shipment.tempNominal + (Math.random() - 0.5) * 0.4).toFixed(1))
+        const newTemp = liveData.temperature
+        // const newHumidity = Math.round(shipment.humidityNominal + (Math.random() - 0.5) * 3)
+        const newHumidity = liveData.humidity
         return {
           ...prev,
           temperature: newTemp,
