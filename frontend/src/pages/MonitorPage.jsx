@@ -23,6 +23,8 @@ export default function MonitorPage() {
         analysis: data.analysis,
         timeline: data.timeline.map((e) => ({ ...e, time: new Date(e.time).toISOString() })),
         incidentActive: data.incidentActive,
+        activeAgentEvent: data.activeAgentEvent,
+        agentLog: data.agentLog,
       }).catch(() => {}),
       updateShipment(id, {
         status: finalStatus,

@@ -1,4 +1,4 @@
-import EscalationDrafts from './EscalationDrafts'
+import { createResponseFinalOutput } from '../data/agentOutputs'
 
 function getOverallStatus(viabilityScore) {
   if (viabilityScore >= 90) return 'SAFE'
@@ -24,19 +24,31 @@ const STATUS_STYLES = {
   },
 }
 
-const RECOMMENDATIONS = {
-  SAFE:
-    'Product cleared for use. All monitored parameters remained within compliance thresholds. Retain the chain-of-custody record per standard protocol.',
-  'AT RISK':
-    'Product should be quarantined pending pharmacist or quality assurance review. Do not dispense until a viability assessment is complete and documented.',
-  COMPROMISED:
-    'Product should be quarantined immediately and must not be dispensed. Initiate FDA deviation reporting protocol. Preserve all chain-of-custody records and physical packaging for investigation.',
+function normalizeShipment(s) {
+  return {
+    ...s,
+    name: s.productName || s.name || 'Unknown',
+    tempNominal: s.tempNominal ?? 4.2,
+    tempMin: s.tempMin ?? 2,
+    tempMax: s.tempMax ?? 8,
+    humidityMin: s.humidityMin ?? 30,
+    humidityMax: s.humidityMax ?? 50,
+    complianceFramework: s.complianceFramework || '',
+  }
 }
 
-export default function FinalReport({ data, shipment, onRestart }) {
+export default function FinalReport({ data, shipment: rawShipment, shipmentId, onRestart }) {
+  const shipment = normalizeShipment(rawShipment)
   const { sensors, analysis, timeline, incidentActive } = data
   const overallStatus = getOverallStatus(analysis.viabilityScore)
   const style = STATUS_STYLES[overallStatus]
+  const responseOutput = createResponseFinalOutput({
+    shipment,
+    shipmentId,
+    sensors,
+    analysis,
+    incidentActive,
+  })
 
   // Mock compliance stats derived from incident state
   const tempCompliancePct = incidentActive ? 78.4 : 99.2
@@ -148,21 +160,8 @@ export default function FinalReport({ data, shipment, onRestart }) {
           />
         </div>
 
-        {/* Confidence scores */}
-        <div className="report-section-title mono">INCIDENT CONFIDENCE ANALYSIS</div>
-        <div className="report-confidence-grid">
-          <ConfidenceRow label="Seal Breach Confidence" value={analysis.sealBreachConfidence} />
-          <ConfidenceRow label="Tampering Confidence" value={analysis.tamperingConfidence} />
-          <ConfidenceRow label="Negligence Confidence" value={analysis.negligenceConfidence} />
-        </div>
-
-        {/* Recommended action */}
-        <div className="report-section-title mono" style={{ marginTop: '2rem' }}>
-          RECOMMENDED ACTION
-        </div>
-        <div className="report-recommendation" style={{ borderColor: style.border }}>
-          <p className="report-recommendation-text">{RECOMMENDATIONS[overallStatus]}</p>
-        </div>
+        <div className="report-section-title mono">RESPONSE AGENT REPORT</div>
+        <AgentReportBlock entry={responseOutput} />
 
         {/* Chain-of-custody timeline */}
         <div className="report-section-title mono" style={{ marginTop: '2rem' }}>
@@ -183,15 +182,6 @@ export default function FinalReport({ data, shipment, onRestart }) {
             </div>
           ))}
         </div>
-
-        {/* Escalation drafts (only if not safe) */}
-        {overallStatus !== 'SAFE' && (
-          <EscalationDrafts
-            shipment={shipment}
-            analysis={analysis}
-            status={overallStatus}
-          />
-        )}
 
         <div className="report-footer">
           <button className="btn-ghost" onClick={onRestart}>
@@ -217,23 +207,17 @@ function ReportStat({ label, value, alert }) {
   )
 }
 
-function ConfidenceRow({ label, value }) {
-  const color =
-    value > 60 ? 'var(--red)' : value > 30 ? 'var(--amber)' : 'var(--green)'
+function AgentReportBlock({ entry }) {
   return (
-    <div className="report-confidence-row">
-      <div className="report-confidence-header">
-        <span className="mono report-confidence-label">{label}</span>
-        <span className="mono report-confidence-value" style={{ color }}>
-          {value.toFixed(1)}%
-        </span>
+    <div className="report-agent-block">
+      <div className="report-agent-header">
+        <div>
+          <div className="mono report-agent-handle">{entry.agent.handle}</div>
+          <div className="report-agent-command">{entry.command}</div>
+        </div>
+        <span className="mono report-agent-status">{entry.status}</span>
       </div>
-      <div className="report-confidence-track">
-        <div
-          className="report-confidence-fill"
-          style={{ width: `${value}%`, background: color }}
-        />
-      </div>
+      <pre className="report-agent-output">{entry.body}</pre>
     </div>
   )
 }

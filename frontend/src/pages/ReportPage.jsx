@@ -51,6 +51,7 @@ export default function ReportPage() {
     <FinalReport
       data={data}
       shipment={shipment}
+      shipmentId={id}
       onRestart={() => navigate('/')}
     />
   )
