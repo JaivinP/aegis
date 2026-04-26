@@ -60,7 +60,7 @@ export default function SensorPanel({ sensors, shipment }) {
         <SensorRow
           label="ROUTE PROGRESS"
           value={`${Math.round(sensors.routeProgress)}%`}
-          subLabel="LA → Phoenix"
+          subLabel={`${shipment.origin} → ${shipment.destination}`}
           status="ok"
           barPct={sensors.routeProgress}
         />

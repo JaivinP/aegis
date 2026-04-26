@@ -1,4 +1,5 @@
 import { useKeyboard } from '../context/KeyboardContext'
+import { calculateReportMetrics } from '../utils/reportMetrics'
 
 function ConfBar({ label, pct, color }) {
   return (
@@ -19,17 +20,23 @@ export default function IncidentZoom() {
 
   const analysis = dashboardCtx?.analysisRef?.current
   const sensors  = dashboardCtx?.sensorsRef?.current
+  const sensorHistory = dashboardCtx?.sensorHistoryRef?.current || []
+  const timeline = dashboardCtx?.timelineRef?.current || []
   const ship     = dashboardCtx?.shipment
   const id       = dashboardCtx?.shipmentId || '—'
+  const metrics = calculateReportMetrics({ shipment: ship, sensors, sensorHistory, timeline })
 
-  const seal   = analysis?.sealBreachConfidence  ?? 86
-  const tamp   = analysis?.tamperingConfidence   ?? 79
-  const negl   = analysis?.negligenceConfidence  ?? 18
-  const refr   = 11
-  const viab   = analysis?.viabilityScore        ?? 71.2
-  const deg    = analysis?.degradationRisk        ?? 31.4
+  const seal   = analysis?.sealBreachConfidence  ?? (metrics.sealCompromised ? metrics.degradationRisk : 0)
+  const tamp   = analysis?.tamperingConfidence   ?? 0
+  const negl   = analysis?.negligenceConfidence  ?? 0
+  const refr   = metrics.tempCompliancePct < 100 ? 100 - metrics.tempCompliancePct : 0
+  const viab   = metrics.viabilityScore
+  const deg    = metrics.degradationRisk
   const temp   = sensors?.temperature?.toFixed(1) ?? '—'
   const humid  = sensors?.humidity               ?? '—'
+  const humidityDelta = typeof humid === 'number' && ship?.humidityNominal !== undefined
+    ? Math.round(humid - ship.humidityNominal)
+    : 0
 
   function onKeyDown(e) {
     if (e.key === 'r' || e.key === 'R') {
@@ -53,9 +60,9 @@ export default function IncidentZoom() {
         </div>
 
         <div className="kb-iz-narrative">
-          Two clustered shock events were followed by a humidity surge and rapid temperature rise above {ship?.tempMax ?? 8}°C.
-          The sequence suggests physical impact caused seal degradation, allowing warm external air exposure.
-          Multi-sensor correlation confirms this is inconsistent with normal refrigeration drift.
+          Recorded exceptions show {metrics.alertCount} alert event{metrics.alertCount === 1 ? '' : 's'} against the configured shipment thresholds.
+          Current temperature is {temp}°C and humidity is {humid}% on a route configured for {ship?.origin} to {ship?.destination}.
+          Integrity status is {sensors?.sealStatus || 'unknown'}.
         </div>
 
         <div className="kb-iz-grid">
@@ -72,7 +79,7 @@ export default function IncidentZoom() {
             <div className="kb-iz-evidence-list">
               <div className="kb-iz-evidence-item">
                 <span className="kb-iz-evidence-dot" style={{ background: 'var(--red)' }} />
-                <span>Shock event — 3.8g impact recorded</span>
+                <span>Shock events recorded: {metrics.shockCount}</span>
               </div>
               <div className="kb-iz-evidence-item">
                 <span className="kb-iz-evidence-dot" style={{ background: 'var(--red)' }} />
@@ -80,11 +87,11 @@ export default function IncidentZoom() {
               </div>
               <div className="kb-iz-evidence-item">
                 <span className="kb-iz-evidence-dot" style={{ background: 'var(--amber)' }} />
-                <span>Humidity +{humid && ship ? Math.round(humid - (ship.humidityNominal || 38)) : 17}% in 41 seconds</span>
+                <span>Humidity delta from nominal: {humidityDelta >= 0 ? '+' : ''}{humidityDelta}%</span>
               </div>
               <div className="kb-iz-evidence-item">
                 <span className="kb-iz-evidence-dot" style={{ background: 'var(--amber)' }} />
-                <span>Temperature rising at 1.8°C/min — currently {temp}°C</span>
+                <span>Observed temperature range: {metrics.minTemp?.toFixed(1) ?? '—'}°C to {metrics.maxTemp?.toFixed(1) ?? '—'}°C</span>
               </div>
             </div>
           </div>

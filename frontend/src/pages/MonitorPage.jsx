@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { getShipment, updateShipment, saveReport } from '../api'
 import MonitoringDashboard from '../components/MonitoringDashboard'
+import { calculateReportMetrics, getFinalStatusFromViability } from '../utils/reportMetrics'
 
 export default function MonitorPage() {
   const { id } = useParams()
@@ -16,11 +17,29 @@ export default function MonitorPage() {
   }, [id])
 
   async function handleEndDelivery(data) {
-    const finalStatus = data.incidentActive ? 'ESCALATED' : 'COMPLETED'
+    const metrics = calculateReportMetrics({
+      shipment,
+      sensors: data.sensors,
+      sensorHistory: data.sensorHistory,
+      timeline: data.timeline,
+    })
+    const analysis = {
+      ...data.analysis,
+      status: metrics.status,
+      viabilityScore: metrics.viabilityScore,
+      degradationRisk: metrics.degradationRisk,
+    }
+    const finalStatus = metrics.viabilityScore < 90 ? 'ESCALATED' : 'COMPLETED'
+    const reportData = {
+      ...data,
+      analysis,
+      generatedAt: new Date().toISOString(),
+    }
     await Promise.all([
       saveReport(id, {
-        sensors: data.sensors,
-        analysis: data.analysis,
+        sensors: reportData.sensors,
+        analysis,
+        sensorHistory: data.sensorHistory,
         timeline: data.timeline.map((e) => ({ ...e, time: new Date(e.time).toISOString() })),
         incidentActive: data.incidentActive,
         activeAgentEvent: data.activeAgentEvent,
@@ -29,10 +48,10 @@ export default function MonitorPage() {
       updateShipment(id, {
         status: finalStatus,
         currentPhase: 'report',
-        finalStatus: data.analysis.viabilityScore >= 90 ? 'SAFE' : data.analysis.viabilityScore >= 70 ? 'AT_RISK' : 'COMPROMISED',
+        finalStatus: getFinalStatusFromViability(metrics.viabilityScore),
       }).catch(() => {}),
     ])
-    navigate(`/shipments/${id}/report`, { state: data })
+    navigate(`/shipments/${id}/report`, { state: reportData })
   }
 
   if (error) return <div className="page-content"><div className="page-inner"><p className="mono" style={{ color: 'var(--red)' }}>{error}</p></div></div>
