@@ -6,7 +6,7 @@ import TimelinePanel from './TimelinePanel'
 import SensorCharts from './SensorCharts'
 import PhotoRequestPanel from './PhotoRequestPanel'
 import ActiveShipmentSwitcher from './ActiveShipmentSwitcher'
-import { addEvent, callNarrativeAgent, updateShipment } from '../api'
+import { addEvent, callNarrativeAgent, resetVoiceAlert, updateShipment } from '../api'
 import {
   AGENTS,
   createNarrativeEventFromAgentResponse,
@@ -66,6 +66,31 @@ function getNominalAnalysis(shipment) {
   }
 }
 
+function getLiveAnomalyReasons(liveData, shipment) {
+  if (!liveData) return []
+
+  const reasons = []
+  const temperature = Number(liveData.temperature)
+  const humidity = Number(liveData.humidity)
+  const shockDetected = Number(liveData.shockDetected)
+  const water = Number(liveData.water)
+
+  if (Number.isFinite(temperature) && (temperature < shipment.tempMin || temperature > shipment.tempMax)) {
+    reasons.push(`Temperature out of range: ${temperature.toFixed(1)}°C (safe: ${shipment.tempMin}–${shipment.tempMax}°C)`)
+  }
+  if (Number.isFinite(humidity) && (humidity < shipment.humidityMin || humidity > shipment.humidityMax)) {
+    reasons.push(`Humidity out of range: ${humidity.toFixed(0)}% (safe: ${shipment.humidityMin}–${shipment.humidityMax}%)`)
+  }
+  if (Number.isFinite(shockDetected) && shockDetected > 0) {
+    reasons.push(`Shock detected: ${shockDetected.toFixed(2)}`)
+  }
+  if (Number.isFinite(water) && water >= 30) {
+    reasons.push(`Water exposure: ${water.toFixed(0)}`)
+  }
+
+  return reasons
+}
+
 function getInitialTimeline() {
   const now = Date.now()
   return [
@@ -76,7 +101,7 @@ function getInitialTimeline() {
   ]
 }
 
-function buildAgentPayload({ shipment, shipmentId, sensors, sensorHistory, timeline, analysis, incident }) {
+function buildAgentPayload({ shipment, shipmentId, sensors, sensorHistory, timeline, analysis, incident, suppressVoice = false }) {
   return {
     shipmentId,
     timestamp: new Date().toISOString(),
@@ -119,6 +144,7 @@ function buildAgentPayload({ shipment, shipmentId, sensors, sensorHistory, timel
     })),
     analysis,
     incident,
+    suppressVoice,
   }
 }
 
@@ -170,6 +196,7 @@ export default function MonitoringDashboard({ shipment: rawShipment, shipmentId:
   const prevLiveDataRef = useRef(null)
   const lastAiTriggerRef = useRef(0)
   const aiRunningRef = useRef(false)
+  const voiceAlertActiveRef = useRef(false)
 
   useEffect(() => { sensorHistoryRef.current = sensorHistory }, [sensorHistory])
   useEffect(() => { timelineRef.current = timeline }, [timeline])
@@ -177,6 +204,34 @@ export default function MonitoringDashboard({ shipment: rawShipment, shipmentId:
   useEffect(() => { analysisRef.current = analysis }, [analysis])
   useEffect(() => { incidentActiveRef.current = incidentActive }, [incidentActive])
   useEffect(() => { aiRunningRef.current = activeAgentEvent?.status === 'ANALYZING' }, [activeAgentEvent])
+
+  useEffect(() => {
+    if (!liveData) return
+    if (getLiveAnomalyReasons(liveData, shipment).length === 0) {
+      if (voiceAlertActiveRef.current) {
+        resetVoiceAlert(shipmentId).catch(() => {})
+      }
+      voiceAlertActiveRef.current = false
+    }
+  }, [liveData, shipment, shipmentId])
+
+  // Keep charts aligned with the same live readings shown in SensorPanel.
+  useEffect(() => {
+    if (!liveData || incidentRef.current) return
+
+    const temperature = Number(liveData.temperature)
+    const humidity = Number(liveData.humidity)
+    if (!Number.isFinite(temperature) || !Number.isFinite(humidity)) return
+
+    setSensorHistory((h) => [
+      ...h.slice(-59),
+      {
+        ts: Date.now(),
+        temperature: parseFloat(temperature.toFixed(1)),
+        humidity: Math.round(humidity),
+      },
+    ])
+  }, [liveData])
 
   // Live anomaly detection — triggers AI on red anomalies or big sensor shifts
   useEffect(() => {
@@ -189,21 +244,7 @@ export default function MonitoringDashboard({ shipment: rawShipment, shipmentId:
     if (aiRunningRef.current) return
     if (Date.now() - lastAiTriggerRef.current < 60000) return
 
-    const reasons = []
-
-    // Red anomalies — values outside safe thresholds
-    if (liveData.temperature < shipment.tempMin || liveData.temperature > shipment.tempMax) {
-      reasons.push(`Temperature out of range: ${liveData.temperature.toFixed(1)}°C (safe: ${shipment.tempMin}–${shipment.tempMax}°C)`)
-    }
-    if (liveData.humidity < shipment.humidityMin || liveData.humidity > shipment.humidityMax) {
-      reasons.push(`Humidity out of range: ${liveData.humidity.toFixed(0)}% (safe: ${shipment.humidityMin}–${shipment.humidityMax}%)`)
-    }
-    if (liveData.shockDetected > 0) {
-      reasons.push(`Shock detected: ${liveData.shockDetected.toFixed(2)}`)
-    }
-    if (liveData.water >= 30) {
-      reasons.push(`Water exposure: ${liveData.water.toFixed(0)}`)
-    }
+    const reasons = getLiveAnomalyReasons(liveData, shipment)
 
     // Big shifts since last reading
     const tempShift = Math.abs(liveData.temperature - prev.temperature)
@@ -217,6 +258,8 @@ export default function MonitoringDashboard({ shipment: rawShipment, shipmentId:
 
     if (reasons.length === 0) return
 
+    const suppressVoice = voiceAlertActiveRef.current
+    voiceAlertActiveRef.current = true
     lastAiTriggerRef.current = Date.now()
     const triggerReason = reasons.join('; ')
     const t = new Date()
@@ -256,6 +299,7 @@ export default function MonitoringDashboard({ shipment: rawShipment, shipmentId:
       ],
       timeline: [...timelineRef.current, { time: t, label: `Live anomaly — ${triggerReason}`, type: 'alert' }],
       analysis: analysisRef.current,
+      suppressVoice,
       incident: {
         trigger: triggerReason,
         severity: 'WARNING',
@@ -313,10 +357,6 @@ export default function MonitoringDashboard({ shipment: rawShipment, shipmentId:
         const newProgress = Math.min(prev.routeProgress + 0.25, 95)
         const newTemp = parseFloat((shipment.tempNominal + (Math.random() - 0.5) * 0.4).toFixed(1))
         const newHumidity = Math.round(shipment.humidityNominal + (Math.random() - 0.5) * 3)
-        setSensorHistory((h) => [
-          ...h.slice(-59),
-          { ts: Date.now(), temperature: newTemp, humidity: newHumidity },
-        ])
         return {
           ...prev,
           temperature: newTemp,
@@ -418,6 +458,8 @@ export default function MonitoringDashboard({ shipment: rawShipment, shipmentId:
       ])
       postEvent(shipmentId, 'Narrative Agent analyzing anomaly', 'ai', 'WARNING', t2)
 
+      const suppressVoice = voiceAlertActiveRef.current
+      voiceAlertActiveRef.current = true
       const payload = buildAgentPayload({
         shipment,
         shipmentId,
@@ -428,6 +470,7 @@ export default function MonitoringDashboard({ shipment: rawShipment, shipmentId:
         ],
         timeline: incidentTimeline,
         analysis: incidentAnalysis,
+        suppressVoice,
         incident: {
           trigger: 'Shock event followed by water exposure, seal compromise, and temperature excursion',
           severity: 'CRITICAL',
@@ -480,6 +523,7 @@ export default function MonitoringDashboard({ shipment: rawShipment, shipmentId:
     setIncidentActive(false)
     incidentRef.current = false
     incidentActiveRef.current = false
+    voiceAlertActiveRef.current = false
     setSensors(getNominalSensors(shipment))
     setAnalysis(getNominalAnalysis(shipment))
     setActiveAgentEvent(null)

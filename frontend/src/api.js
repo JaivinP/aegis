@@ -42,3 +42,5 @@ export const callResponseAgent = (data) =>
   req('POST', '/agents/response/report', data)
 export const stopVoice = () =>
   req('POST', '/agents/voice/stop', {})
+export const resetVoiceAlert = (shipmentId) =>
+  req('POST', '/agents/voice/reset', { shipmentId })

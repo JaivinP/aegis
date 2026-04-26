@@ -70,6 +70,18 @@ async def stop_voice():
     return {"ok": True, "killed": killed}
 
 
+@app.post("/agents/voice/reset")
+async def reset_voice(payload: Dict[str, Any]):
+    from voice_agent import reset_voice_alert
+
+    shipment_id = payload.get("shipmentId")
+    if not shipment_id:
+        raise HTTPException(status_code=400, detail="shipmentId is required")
+
+    was_active = reset_voice_alert(str(shipment_id))
+    return {"ok": True, "reset": was_active}
+
+
 @app.post("/agents/narrative/analyze")
 async def analyze_with_narrative_agent(payload: Dict[str, Any]):
     try:
