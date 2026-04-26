@@ -64,11 +64,11 @@ export default function ContainerConnection({ shipment, onComplete }) {
               <div key={i} className={`connect-step connect-step--${state}`}>
                 <div className="connect-step-icon">
                   {state === 'done' ? (
-                    <span style={{ color: 'var(--green)', fontWeight: 700 }}>✓</span>
+                    <span className="text-success-bold">✓</span>
                   ) : state === 'active' ? (
                     <span className="spinner" />
                   ) : (
-                    <span style={{ color: 'var(--text-muted)' }}>○</span>
+                    <span className="text-muted-color">○</span>
                   )}
                 </div>
                 <span className="connect-step-label mono">{step.label}</span>

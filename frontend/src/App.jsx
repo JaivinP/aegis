@@ -113,14 +113,14 @@ function AppNav() {
         </Link>
 
         {!isDashboard && (
-          <Link to="/shipments/new" className="btn-primary" style={{ marginLeft: 'auto', padding: '0.4rem 0.9rem', fontSize: '0.75rem' }}>
+          <Link to="/shipments/new" className="btn-primary nav-btn-new">
             + New Shipment
           </Link>
         )}
 
-        <div className="nav-status" style={{ marginLeft: isDashboard ? 'auto' : '0.75rem' }}>
+        <div className={`nav-status ${isDashboard ? 'nav-status--dashboard' : ''}`}>
           <span className="pulse-dot green" />
-          <span className="mono" style={{ fontSize: '0.75rem', color: 'var(--teal)' }}>
+          <span className="mono nav-status-text">
             {isMonitor ? 'LIVE MONITORING' : 'SYSTEM ONLINE'}
           </span>
         </div>

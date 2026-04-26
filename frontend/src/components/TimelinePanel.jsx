@@ -29,7 +29,7 @@ export default function TimelinePanel({ timeline }) {
     <div className="panel timeline-panel">
       <div className="panel-header">
         <span className="panel-title mono">CHAIN OF CUSTODY</span>
-        <span className="mono" style={{ fontSize: '0.65rem', color: 'var(--text-muted)', letterSpacing: '0.1em' }}>
+        <span className="mono meta-label">
           {timeline.length} EVENT{timeline.length !== 1 ? 'S' : ''}
         </span>
       </div>

@@ -103,7 +103,7 @@
    ════════════════════════════════════════ */
 .kb-palette {
   width: min(640px, 92vw);
-  background: rgba(10, 18, 28, 0.98);
+  background: var(--bg-card);
   border: 1px solid rgba(110, 169, 122, 0.22);
   /* border-radius: 12px; */
   box-shadow: 0 32px 80px rgba(0,0,0,0.85), 0 0 0 1px rgba(110, 169, 122,0.06);
@@ -204,7 +204,7 @@
    ════════════════════════════════════════ */
 .kb-ai-panel {
   width: min(680px, 92vw);
-  background: rgba(10, 18, 28, 0.98);
+  background: var(--bg-card);
   border: 1px solid rgba(110, 169, 122, 0.22);
   /* border-radius: 12px; */
   box-shadow: 0 32px 80px rgba(0,0,0,0.85);
@@ -466,7 +466,7 @@
    ════════════════════════════════════════ */
 .kb-iz-panel {
   width: min(820px, 94vw);
-  background: rgba(10, 18, 28, 0.99);
+  background: var(--bg-card);
   border: 1px solid rgba(239, 68, 68, 0.3);
   /* border-radius: 14px; */
   box-shadow: 0 40px 100px rgba(0,0,0,0.9), 0 0 60px rgba(239,68,68,0.05);
@@ -3719,3 +3719,112 @@
   padding: 0.5rem 0.875rem;
   border-top: 1px solid var(--border);
 }
+
+/* ════════════════════════════════════════════
+   SHARED UTILITIES
+   ════════════════════════════════════════════ */
+
+/* Empty / loading states */
+.panel-empty {
+  padding: 3rem;
+  text-align: center;
+  color: var(--text-muted);
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.8rem;
+}
+.panel-empty--sm {
+  padding: 1.5rem;
+  font-size: 0.75rem;
+}
+
+/* Typography */
+.meta-label {
+  font-size: 0.6rem;
+  color: var(--text-muted);
+  letter-spacing: 0.1em;
+}
+.value-accent {
+  font-size: 0.85rem;
+  color: var(--teal);
+  font-weight: 600;
+}
+.value-primary {
+  font-size: 0.85rem;
+  color: var(--text);
+  font-weight: 600;
+}
+.text-accent  { color: var(--teal); }
+.text-ok      { color: var(--teal); }
+.text-red     { color: var(--red); }
+.text-amber   { color: var(--amber); }
+.text-success-bold { color: var(--green); font-weight: 700; }
+.text-muted-color  { color: var(--text-muted); }
+
+/* Color dots */
+.dot--red   { background: var(--red); }
+.dot--amber { background: var(--amber); }
+
+/* Layout helpers */
+.flex-col-tight { display: flex; flex-direction: column; gap: 0.1rem; }
+.flex-row-sm    { display: flex; align-items: center; gap: 0.5rem; }
+.text-right     { text-align: right; }
+
+/* Nav */
+.nav-btn-new        { margin-left: auto; padding: 0.4rem 0.9rem; font-size: 0.75rem; }
+.nav-status--dashboard { margin-left: auto; }
+.nav-status-text    { font-size: 0.75rem; color: var(--teal); }
+
+/* Pulse dot size modifier */
+.pulse-dot--xs { width: 6px; height: 6px; }
+
+/* Spinner size modifier */
+.spinner--sm { width: 20px; height: 20px; border-width: 3px; }
+
+/* Keyboard hint dim */
+.kb-hint--dim { opacity: 0.5; }
+
+/* Dashboard topbar */
+.db-shipment-name    { font-size: 0.9rem; color: var(--teal); font-weight: 700; }
+.db-shipment-meta    { font-size: 0.65rem; color: var(--text-muted); }
+.db-viability-label  { font-size: 0.58rem; color: var(--text-muted); letter-spacing: 0.12em; }
+.db-viability-score  { font-size: 1.1rem; font-weight: 700; }
+.db-status-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  display: inline-block;
+  animation: pulse 2s ease-in-out infinite;
+}
+
+/* SparkBar */
+.spark-bar-track {
+  width: 100%;
+  height: 3px;
+  background: var(--border);
+  border-radius: 2px;
+  overflow: hidden;
+}
+.spark-bar-fill {
+  height: 100%;
+  border-radius: 2px;
+  transition: width 0.3s;
+}
+
+/* Mission control */
+.mc-compliance    { font-size: 0.55rem; color: var(--text-muted); }
+.mc-metric-range  { font-size: 0.62rem; color: var(--text-muted); }
+
+/* Geo mode */
+.geo-item-route { font-size: 0.55rem; color: var(--text-muted); margin-top: 2px; }
+
+/* Route panel */
+.route-gps-label  { font-size: 0.65rem; color: var(--teal); }
+.route-place-name { font-size: 0.75rem; }
+
+/* Final report */
+.report-meta-label   { font-size: 0.6rem; color: var(--text-muted); letter-spacing: 0.12em; }
+.report-status-label { font-size: 0.6rem; letter-spacing: 0.2em; margin-bottom: 0.5rem; }
+.report-section-mt   { margin-top: 2rem; }
+
+/* Shipment selector */
+.spec-value-dim { color: var(--text-dim); font-size: 0.68rem; }

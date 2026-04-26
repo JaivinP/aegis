@@ -201,15 +201,7 @@ export default function FinalReport({ data, shipment: rawShipment, shipmentId, o
           style={{ borderColor: style.border, background: style.bg }}
         >
           <div>
-            <div
-              className="mono"
-              style={{
-                fontSize: '0.6rem',
-                letterSpacing: '0.2em',
-                color: style.color,
-                marginBottom: '0.5rem',
-              }}
-            >
+            <div className="mono report-status-label" style={{ color: style.color }}>
               OVERALL SHIPMENT STATUS
             </div>
             <div className="report-status-value" style={{ color: style.color }}>
@@ -218,23 +210,13 @@ export default function FinalReport({ data, shipment: rawShipment, shipmentId, o
           </div>
           <div className="report-status-scores">
             <div className="report-score">
-              <span
-                className="mono"
-                style={{ fontSize: '0.6rem', color: 'var(--text-muted)', letterSpacing: '0.12em' }}
-              >
-                PRODUCT VIABILITY SCORE
-              </span>
+              <span className="mono report-meta-label">PRODUCT VIABILITY SCORE</span>
               <span className="mono report-score-value" style={{ color: style.color }}>
                 {analysis.viabilityScore.toFixed(1)}%
               </span>
             </div>
             <div className="report-score">
-              <span
-                className="mono"
-                style={{ fontSize: '0.6rem', color: 'var(--text-muted)', letterSpacing: '0.12em' }}
-              >
-                ESTIMATED DEGRADATION RISK
-              </span>
+              <span className="mono report-meta-label">ESTIMATED DEGRADATION RISK</span>
               <span className="mono report-score-value" style={{ color: style.color }}>
                 {analysis.degradationRisk.toFixed(1)}%
               </span>
@@ -291,7 +273,7 @@ export default function FinalReport({ data, shipment: rawShipment, shipmentId, o
         )}
 
         {/* Chain-of-custody timeline */}
-        <div className="report-section-title mono" style={{ marginTop: '2rem' }}>
+        <div className="report-section-title mono report-section-mt">
           CHAIN-OF-CUSTODY TIMELINE
         </div>
         <div className="report-timeline">
@@ -324,10 +306,7 @@ function ReportStat({ label, value, alert }) {
   return (
     <div className="report-stat">
       <div className="mono report-stat-label">{label}</div>
-      <div
-        className="mono report-stat-value"
-        style={{ color: alert ? 'var(--red)' : 'var(--text)' }}
-      >
+      <div className={`mono report-stat-value ${alert ? 'text-red' : ''}`}>
         {value}
       </div>
     </div>

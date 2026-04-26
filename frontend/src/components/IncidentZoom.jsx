@@ -71,19 +71,19 @@ export default function IncidentZoom() {
             <div className="kb-iz-section-title mono">SENSOR EVIDENCE</div>
             <div className="kb-iz-evidence-list">
               <div className="kb-iz-evidence-item">
-                <span className="kb-iz-evidence-dot" style={{ background: 'var(--red)' }} />
+                <span className="kb-iz-evidence-dot dot--red" />
                 <span>Shock event — 3.8g impact recorded</span>
               </div>
               <div className="kb-iz-evidence-item">
-                <span className="kb-iz-evidence-dot" style={{ background: 'var(--red)' }} />
+                <span className="kb-iz-evidence-dot dot--red" />
                 <span>Water exposure detected — seal breached</span>
               </div>
               <div className="kb-iz-evidence-item">
-                <span className="kb-iz-evidence-dot" style={{ background: 'var(--amber)' }} />
+                <span className="kb-iz-evidence-dot dot--amber" />
                 <span>Humidity +{humid && ship ? Math.round(humid - (ship.humidityNominal || 38)) : 17}% in 41 seconds</span>
               </div>
               <div className="kb-iz-evidence-item">
-                <span className="kb-iz-evidence-dot" style={{ background: 'var(--amber)' }} />
+                <span className="kb-iz-evidence-dot dot--amber" />
                 <span>Temperature rising at 1.8°C/min — currently {temp}°C</span>
               </div>
             </div>
@@ -94,11 +94,11 @@ export default function IncidentZoom() {
             <div className="kb-iz-metric-pair">
               <div className="kb-iz-big-metric">
                 <div className="kb-iz-big-label mono">VIABILITY</div>
-                <div className="kb-iz-big-val" style={{ color: 'var(--amber)' }}>{viab.toFixed(1)}%</div>
+                <div className="kb-iz-big-val text-amber">{viab.toFixed(1)}%</div>
               </div>
               <div className="kb-iz-big-metric">
                 <div className="kb-iz-big-label mono">DEG. RISK</div>
-                <div className="kb-iz-big-val" style={{ color: 'var(--red)' }}>{deg.toFixed(1)}%</div>
+                <div className="kb-iz-big-val text-red">{deg.toFixed(1)}%</div>
               </div>
             </div>
           </div>

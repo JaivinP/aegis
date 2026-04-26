@@ -566,23 +566,19 @@ export default function MonitoringDashboard({ shipment: rawShipment, shipmentId:
       {/* ── Topbar ── */}
       <div className="dashboard-topbar">
         <div className="dashboard-shipment-info">
-          <span style={{ fontSize: '1.4rem' }}>{shipment.icon}</span>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.1rem' }}>
-            <span className="mono" style={{ fontSize: '0.9rem', color: 'var(--teal)', fontWeight: 700 }}>
-              {shipment.name}
-            </span>
-            <span className="mono" style={{ fontSize: '0.65rem', color: 'var(--text-muted)' }}>
-              {shipmentId} · {shipment.complianceFramework}
-            </span>
+          <span className="icon-lg">{shipment.icon}</span>
+          <div className="flex-col-tight">
+            <span className="mono db-shipment-name">{shipment.name}</span>
+            <span className="mono db-shipment-meta">{shipmentId} · {shipment.complianceFramework}</span>
           </div>
           {/* Live status pill */}
           <div className="db-status-pill mono" style={{ background: `${statusColor}18`, border: `1px solid ${statusColor}55`, color: statusColor }}>
-            <span style={{ width: 7, height: 7, borderRadius: '50%', background: statusColor, display: 'inline-block', animation: 'pulse 2s ease-in-out infinite' }} />
+            <span className="db-status-dot" style={{ background: statusColor }} />
             {analysis.status}
           </div>
           <div className="mono db-viability">
-            <span style={{ fontSize: '0.58rem', color: 'var(--text-muted)', letterSpacing: '0.12em' }}>VIABILITY</span>
-            <span style={{ fontSize: '1.1rem', fontWeight: 700, color: statusColor }}>{analysis.viabilityScore.toFixed(1)}%</span>
+            <span className="mono db-viability-label">VIABILITY</span>
+            <span className="mono db-viability-score" style={{ color: statusColor }}>{analysis.viabilityScore.toFixed(1)}%</span>
           </div>
         </div>
         <div className="dashboard-controls">

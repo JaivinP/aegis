@@ -117,14 +117,10 @@ export default function GeoMode() {
 
           <div className="kb-geo-list">
             {loading && (
-              <div style={{ padding: '1.5rem', color: 'var(--text-muted)', fontFamily: 'JetBrains Mono', fontSize: '0.75rem' }}>
-                Loading…
-              </div>
+              <div className="panel-empty panel-empty--sm mono">Loading…</div>
             )}
             {!loading && shipments.length === 0 && (
-              <div style={{ padding: '1.5rem', color: 'var(--text-muted)', fontFamily: 'JetBrains Mono', fontSize: '0.75rem' }}>
-                No active shipments
-              </div>
+              <div className="panel-empty panel-empty--sm mono">No active shipments</div>
             )}
             {shipments.map((s, i) => {
               const color = RISK_COLOR[s.risk]
@@ -142,14 +138,14 @@ export default function GeoMode() {
                     <div className="kb-geo-item-name">{s.name}</div>
                     <div className="kb-geo-item-id mono">{s.id}</div>
                     {s.origin && s.destination && s.origin !== '—' && (
-                      <div className="mono" style={{ fontSize: '0.55rem', color: 'var(--text-muted)', marginTop: 2 }}>
+                      <div className="mono geo-item-route">
                         {s.origin} → {s.destination}
                       </div>
                     )}
                   </div>
                   <div className="kb-geo-item-right">
                     <div className="kb-geo-item-status mono" style={{ color }}>{s.status.replace('_', ' ')}</div>
-                    {s.live && <div className="kb-geo-item-progress mono" style={{ color: 'var(--teal)' }}>{s.progress.toFixed(0)}%</div>}
+                    {s.live && <div className="kb-geo-item-progress mono text-accent">{s.progress.toFixed(0)}%</div>}
                   </div>
                   {isSelected && <span className="kb-geo-item-indicator" style={{ background: color }} />}
                 </button>

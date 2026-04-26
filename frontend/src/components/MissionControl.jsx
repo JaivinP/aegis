@@ -42,8 +42,8 @@ function shipToCard(s, dashboardCtx) {
 
 function SparkBar({ value, color }) {
   return (
-    <div style={{ width: '100%', height: 3, background: 'rgba(255,255,255,0.08)', borderRadius: 2, overflow: 'hidden' }}>
-      <div style={{ width: `${Math.min(100, Math.max(0, value))}%`, height: '100%', background: color, borderRadius: 2, transition: 'width 0.3s' }} />
+    <div className="spark-bar-track">
+      <div className="spark-bar-fill" style={{ width: `${Math.min(100, Math.max(0, value))}%`, background: color }} />
     </div>
   )
 }
@@ -105,15 +105,11 @@ export default function MissionControl() {
         </div>
 
         {loading && (
-          <div style={{ padding: '3rem', textAlign: 'center', color: 'var(--text-muted)', fontFamily: 'JetBrains Mono', fontSize: '0.8rem' }}>
-            Loading…
-          </div>
+          <div className="panel-empty mono">Loading…</div>
         )}
 
         {!loading && cards.length === 0 && (
-          <div style={{ padding: '3rem', textAlign: 'center', color: 'var(--text-muted)', fontFamily: 'JetBrains Mono', fontSize: '0.8rem' }}>
-            No shipments found
-          </div>
+          <div className="panel-empty mono">No shipments found</div>
         )}
 
         {!loading && cards.length > 0 && (
@@ -162,25 +158,25 @@ export default function MissionControl() {
                     <div className="kb-mc-id mono">{s.shipmentId}</div>
                     <div className="kb-mc-route mono">{s.origin} → {s.destination}</div>
                     {s.complianceFramework && (
-                      <div className="mono" style={{ fontSize: '0.55rem', color: 'var(--text-muted)' }}>{s.complianceFramework}</div>
+                      <div className="mono mc-compliance">{s.complianceFramework}</div>
                     )}
                     <div className="kb-mc-metrics">
                       <div className="kb-mc-metric">
                         <span className="kb-mc-metric-label mono">TEMP</span>
-                        <span className="kb-mc-metric-val mono" style={{ color: tempBad ? 'var(--red)' : 'var(--teal)' }}>
+                        <span className={`kb-mc-metric-val mono ${tempBad ? 'text-red' : 'text-ok'}`}>
                           {s.temperature}°C
                         </span>
                       </div>
                       <div className="kb-mc-metric">
                         <span className="kb-mc-metric-label mono">VIABILITY</span>
-                        <span className="kb-mc-metric-val mono" style={{ color: s.viability < 80 ? 'var(--amber)' : 'var(--teal)' }}>
+                        <span className={`kb-mc-metric-val mono ${s.viability < 80 ? 'text-amber' : 'text-ok'}`}>
                           {s.viability}%
                         </span>
                       </div>
                       {s.tempMin != null && s.tempMax != null && (
                         <div className="kb-mc-metric">
                           <span className="kb-mc-metric-label mono">RANGE</span>
-                          <span className="kb-mc-metric-val mono" style={{ fontSize: '0.62rem', color: 'var(--text-muted)' }}>
+                          <span className="kb-mc-metric-val mono mc-metric-range">
                             {s.tempMin}–{s.tempMax}°C
                           </span>
                         </div>

@@ -73,7 +73,7 @@ export default function PhotoRequestPanel({ shipmentId }) {
               {req?.status === 'pending' && (
                 <div className="photo-pending">
                   <div className="photo-pending-anim">
-                    <span className="spinner" style={{ width: 20, height: 20, borderWidth: 3 }} />
+                    <span className="spinner spinner--sm" />
                   </div>
                   <div className="mono photo-pending-text">Contacting container…</div>
                   <div className="mono photo-pending-sub">Awaiting device response</div>

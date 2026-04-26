@@ -9,30 +9,20 @@ export default function RoutePanel({ sensors, shipment }) {
     <div className="panel">
       <div className="panel-header">
         <span className="panel-title mono">ROUTE &amp; LOCATION</span>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-          <span className="pulse-dot green" style={{ width: 6, height: 6 }} />
-          <span className="mono" style={{ fontSize: '0.65rem', color: 'var(--teal)' }}>
-            GPS ACTIVE
-          </span>
+        <div className="flex-row-sm">
+          <span className="pulse-dot green pulse-dot--xs" />
+          <span className="mono route-gps-label">GPS ACTIVE</span>
         </div>
       </div>
 
       <div className="route-info-row">
         <div className="route-info-item">
-          <span className="mono" style={{ fontSize: '0.6rem', color: 'var(--text-muted)', letterSpacing: '0.1em' }}>
-            CURRENT LOCATION
-          </span>
-          <span className="mono" style={{ fontSize: '0.85rem', color: 'var(--teal)', fontWeight: 600 }}>
-            {sensors.location}
-          </span>
+          <span className="mono meta-label">CURRENT LOCATION</span>
+          <span className="mono value-accent">{sensors.location}</span>
         </div>
         <div className="route-info-item">
-          <span className="mono" style={{ fontSize: '0.6rem', color: 'var(--text-muted)', letterSpacing: '0.1em' }}>
-            ROUTE PROGRESS
-          </span>
-          <span className="mono" style={{ fontSize: '0.85rem', color: 'var(--text)', fontWeight: 600 }}>
-            {Math.round(progress)}%
-          </span>
+          <span className="mono meta-label">ROUTE PROGRESS</span>
+          <span className="mono value-primary">{Math.round(progress)}%</span>
         </div>
       </div>
 
@@ -44,13 +34,13 @@ export default function RoutePanel({ sensors, shipment }) {
         <div className="route-endpoint">
           <span className="route-endpoint-dot origin" />
           <div>
-            <div className="mono" style={{ fontSize: '0.75rem' }}>{origin}</div>
+            <div className="mono route-place-name">{origin}</div>
             <div className="route-endpoint-label mono">ORIGIN</div>
           </div>
         </div>
         <div className="route-endpoint">
-          <div style={{ textAlign: 'right' }}>
-            <div className="mono" style={{ fontSize: '0.75rem' }}>{destination}</div>
+          <div className="text-right">
+            <div className="mono route-place-name">{destination}</div>
             <div className="route-endpoint-label mono">DESTINATION</div>
           </div>
           <span className="route-endpoint-dot dest" />

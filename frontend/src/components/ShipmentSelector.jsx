@@ -65,7 +65,7 @@ function ShipmentCard({ shipment, onSelect }) {
         </div>
         <div className="spec-row">
           <span className="spec-label mono">FRAMEWORK</span>
-          <span className="spec-value mono" style={{ color: 'var(--text-dim)', fontSize: '0.68rem' }}>
+          <span className="spec-value mono spec-value-dim">
             {shipment.complianceFramework}
           </span>
         </div>

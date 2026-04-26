@@ -97,13 +97,9 @@ export default function SensorMatrix() {
 
         <div className="kb-sm-table-wrap">
           {loading ? (
-            <div style={{ padding: '3rem', textAlign: 'center', color: 'var(--text-muted)', fontFamily: 'JetBrains Mono', fontSize: '0.8rem' }}>
-              Loading sensor data…
-            </div>
+            <div className="panel-empty mono">Loading sensor data…</div>
           ) : rows.length === 0 ? (
-            <div style={{ padding: '3rem', textAlign: 'center', color: 'var(--text-muted)', fontFamily: 'JetBrains Mono', fontSize: '0.8rem' }}>
-              No shipments found
-            </div>
+            <div className="panel-empty mono">No shipments found</div>
           ) : (
             <table className="kb-sm-table">
               <thead>
@@ -128,14 +124,14 @@ export default function SensorMatrix() {
                         <div className="kb-sm-ship-id mono">{r.id}</div>
                       </div>
                     </td>
-                    <td className="kb-sm-td mono" style={{ color: !r.tempOk ? 'var(--red)' : 'var(--teal)' }}>{r.temp}°C</td>
-                    <td className="kb-sm-td mono" style={{ color: !r.humOk  ? 'var(--amber)' : 'var(--teal)' }}>{r.humidity}%</td>
-                    <td className="kb-sm-td mono" style={{ color: r.shock > 0 ? 'var(--red)' : 'var(--teal)' }}>{r.shock}</td>
-                    <td className="kb-sm-td mono" style={{ color: r.seal === 'BREACH' ? 'var(--red)' : 'var(--teal)' }}>{r.seal}</td>
-                    <td className="kb-sm-td mono" style={{ color: r.water === 'WET' ? 'var(--red)' : 'var(--teal)' }}>{r.water}</td>
-                    <td className="kb-sm-td mono" style={{ color: r.battery < 60 ? 'var(--amber)' : 'var(--teal)' }}>{r.battery}%</td>
-                    <td className="kb-sm-td mono" style={{ color: r.gps === 'ACTIVE' ? 'var(--teal)' : 'var(--text-muted)' }}>{r.gps}</td>
-                    <td className="kb-sm-td mono" style={{ color: r.viability < 80 ? 'var(--amber)' : 'var(--teal)' }}>{r.viability}%</td>
+                    <td className={`kb-sm-td mono ${!r.tempOk ? 'text-red' : 'text-ok'}`}>{r.temp}°C</td>
+                    <td className={`kb-sm-td mono ${!r.humOk ? 'text-amber' : 'text-ok'}`}>{r.humidity}%</td>
+                    <td className={`kb-sm-td mono ${r.shock > 0 ? 'text-red' : 'text-ok'}`}>{r.shock}</td>
+                    <td className={`kb-sm-td mono ${r.seal === 'BREACH' ? 'text-red' : 'text-ok'}`}>{r.seal}</td>
+                    <td className={`kb-sm-td mono ${r.water === 'WET' ? 'text-red' : 'text-ok'}`}>{r.water}</td>
+                    <td className={`kb-sm-td mono ${r.battery < 60 ? 'text-amber' : 'text-ok'}`}>{r.battery}%</td>
+                    <td className={`kb-sm-td mono ${r.gps === 'ACTIVE' ? 'text-ok' : 'text-muted-color'}`}>{r.gps}</td>
+                    <td className={`kb-sm-td mono ${r.viability < 80 ? 'text-amber' : 'text-ok'}`}>{r.viability}%</td>
                   </tr>
                 ))}
               </tbody>

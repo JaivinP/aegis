@@ -53,9 +53,7 @@ export default function SensorCharts({ history, shipment }) {
     <div className="panel panel--charts">
       <div className="panel-header">
         <span className="panel-title mono">SENSOR TRENDS</span>
-        <span className="mono" style={{ fontSize: '0.6rem', color: 'var(--text-muted)' }}>
-          LAST {history.length} READINGS
-        </span>
+        <span className="mono meta-label">LAST {history.length} READINGS</span>
       </div>
 
       <div className="charts-grid">
