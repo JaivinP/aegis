@@ -1,6 +1,6 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { Link } from 'react-router-dom'
-import { listShipments } from '../api'
+import { listShipments, deleteShipment } from '../api'
 
 const STATUS_STYLE = {
   IN_TRANSIT: { color: 'var(--teal)', bg: 'var(--teal-glow)', border: 'rgba(0,200,180,0.25)' },
@@ -43,6 +43,16 @@ export default function Dashboard() {
     }, 5000)
     return () => clearInterval(interval)
   }, [])
+
+  const [confirmId, setConfirmId] = useState(null)
+  const confirmShipment = shipments.find((s) => s.shipmentId === confirmId)
+
+  async function handleDelete() {
+    if (!confirmId) return
+    await deleteShipment(confirmId).catch(() => {})
+    setShipments((prev) => prev.filter((s) => s.shipmentId !== confirmId))
+    setConfirmId(null)
+  }
 
   const active = shipments.filter((s) => ACTIVE_STATUSES.has(s.status))
   const completed = shipments.filter((s) => !ACTIVE_STATUSES.has(s.status))
@@ -88,7 +98,7 @@ export default function Dashboard() {
               <span className="dash-section-count">{active.length}</span>
             </div>
             <div className="history-grid">
-              {active.map((s) => <ShipmentCard key={s.shipmentId} shipment={s} />)}
+              {active.map((s) => <ShipmentCard key={s.shipmentId} shipment={s} onDelete={() => setConfirmId(s.shipmentId)} />)}
             </div>
           </section>
         )}
@@ -100,16 +110,24 @@ export default function Dashboard() {
               <span className="dash-section-count">{completed.length}</span>
             </div>
             <div className="history-grid">
-              {completed.map((s) => <ShipmentCard key={s.shipmentId} shipment={s} />)}
+              {completed.map((s) => <ShipmentCard key={s.shipmentId} shipment={s} onDelete={() => setConfirmId(s.shipmentId)} />)}
             </div>
           </section>
+        )}
+
+        {confirmId && confirmShipment && (
+          <DeleteModal
+            shipment={confirmShipment}
+            onConfirm={handleDelete}
+            onCancel={() => setConfirmId(null)}
+          />
         )}
       </div>
     </div>
   )
 }
 
-function ShipmentCard({ shipment: s }) {
+function ShipmentCard({ shipment: s, onDelete }) {
   const hasIncident = Boolean(s.incidentDetectedAt)
   const style = hasIncident && s.status === 'IN_TRANSIT'
     ? { color: 'var(--red)', bg: 'rgba(239,68,68,0.08)', border: 'rgba(239,68,68,0.35)' }
@@ -117,6 +135,14 @@ function ShipmentCard({ shipment: s }) {
   const href = shipmentHref(s)
 
   return (
+    <div className={`history-card-wrapper ${hasIncident && s.status === 'IN_TRANSIT' ? 'history-card-wrapper--incident' : ''}`}>
+      <button
+        className="history-card-delete-btn"
+        onClick={(e) => { e.stopPropagation(); onDelete() }}
+        title="Delete shipment"
+      >
+        ✕
+      </button>
     <Link
       to={href}
       className={`history-card ${hasIncident && s.status === 'IN_TRANSIT' ? 'history-card--incident' : ''}`}
@@ -184,5 +210,39 @@ function ShipmentCard({ shipment: s }) {
          'Continue →'}
       </div>
     </Link>
+    </div>
+  )
+}
+
+function DeleteModal({ shipment, onConfirm, onCancel }) {
+  const isActive = ACTIVE_STATUSES.has(shipment.status)
+  return (
+    <div className="modal-backdrop" onClick={onCancel}>
+      <div className="modal" onClick={(e) => e.stopPropagation()}>
+        <div className="modal-header">
+          <span className="modal-icon">{shipment.icon || '📦'}</span>
+          <div>
+            <div className="modal-title">Delete Shipment</div>
+            <div className="mono modal-id">{shipment.shipmentId}</div>
+          </div>
+        </div>
+
+        <p className="modal-body">
+          Are you sure you want to delete <strong>{shipment.productName}</strong>?
+          {isActive
+            ? ' This shipment is currently active — all monitoring data will be permanently removed.'
+            : ' All associated reports and timeline data will be permanently removed.'}
+        </p>
+
+        {isActive && (
+          <div className="modal-warning mono">⚠ This shipment is still IN TRANSIT</div>
+        )}
+
+        <div className="modal-actions">
+          <button className="btn-ghost" onClick={onCancel}>Cancel</button>
+          <button className="modal-delete-btn" onClick={onConfirm}>Delete Permanently</button>
+        </div>
+      </div>
+    </div>
   )
 }

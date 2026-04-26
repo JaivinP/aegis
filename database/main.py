@@ -95,6 +95,18 @@ async def get_shipment(shipment_id: str):
     return await require_doc(shipments, {"shipmentId": shipment_id}, "shipment")
 
 
+@app.delete("/shipments/{shipment_id}", status_code=status.HTTP_200_OK)
+async def delete_shipment(shipment_id: str):
+    result = await shipments.delete_one({"shipmentId": shipment_id})
+    if result.deleted_count == 0:
+        raise HTTPException(status_code=404, detail="shipment not found")
+    # Also clean up related collections
+    await incident_reports.delete_many({"shipmentId": shipment_id})
+    await timeline_events.delete_many({"shipmentId": shipment_id})
+    await sensor_readings.delete_many({"shipmentId": shipment_id})
+    return {"ok": True}
+
+
 @app.patch("/shipments/{shipment_id}")
 async def update_shipment(shipment_id: str, payload: Dict[str, Any]):
     payload["updatedAt"] = datetime.now(timezone.utc)

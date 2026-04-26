@@ -7,6 +7,9 @@ import SensorCharts from './SensorCharts'
 import PhotoRequestPanel from './PhotoRequestPanel'
 import ActiveShipmentSwitcher from './ActiveShipmentSwitcher'
 import { addEvent, updateShipment } from '../api'
+import {
+  createNarrativeIncidentOutput,
+} from '../data/agentOutputs'
 
 function postEvent(shipmentId, label, type, severity, time) {
   addEvent(shipmentId, {
@@ -86,14 +89,14 @@ function normalizeShipment(s) {
 
 export default function MonitoringDashboard({ shipment: rawShipment, shipmentId: propShipmentId, onEndDelivery }) {
   const shipment = normalizeShipment(rawShipment)
+  const generatedId = useRef(`AGS-${Math.floor(Math.random() * 9000) + 1000}`).current
+  const shipmentId = propShipmentId || generatedId
   const [sensors, setSensors] = useState(() => getNominalSensors(shipment))
   const [analysis, setAnalysis] = useState(() => getNominalAnalysis(shipment))
   const [timeline, setTimeline] = useState(getInitialTimeline)
   const [incidentActive, setIncidentActive] = useState(false)
-  const incidentRef = useRef(false)
-
-  const generatedId = useRef(`AGS-${Math.floor(Math.random() * 9000) + 1000}`).current
-  const shipmentId = propShipmentId || generatedId
+  const [activeAgentEvent, setActiveAgentEvent] = useState(null)
+  const [agentLog, setAgentLog] = useState([])
 
   // Sensor history for charts (last 60 readings)
   const [sensorHistory, setSensorHistory] = useState(() => [{
@@ -101,6 +104,7 @@ export default function MonitoringDashboard({ shipment: rawShipment, shipmentId:
     temperature: shipment.tempNominal,
     humidity: shipment.humidityNominal,
   }])
+  const incidentRef = useRef(false)
 
   // Live nominal jitter every 2 seconds
   useEffect(() => {
@@ -171,7 +175,7 @@ export default function MonitoringDashboard({ shipment: rawShipment, shipmentId:
 
     // +2.8s: AI classification
     setTimeout(() => {
-      setAnalysis({
+      const incidentAnalysis = {
         status: 'CRITICAL',
         viabilityScore: 71.2,
         degradationRisk: 31.4,
@@ -180,13 +184,28 @@ export default function MonitoringDashboard({ shipment: rawShipment, shipmentId:
         sealBreachConfidence: 87.3,
         tamperingConfidence: 74.1,
         negligenceConfidence: 62.8,
-      })
+      }
+      const incidentSensors = {
+        ...sensors,
+        shockCount: 3,
+        waterExposure: 'DETECTED',
+        sealStatus: 'COMPROMISED',
+        temperature: parseFloat((shipment.tempMax + 1.8).toFixed(1)),
+        humidity: Math.min(shipment.humidityMax + 18, 98),
+      }
+      setAnalysis(incidentAnalysis)
+      setActiveAgentEvent(createNarrativeIncidentOutput({
+        shipment,
+        shipmentId,
+        sensors: incidentSensors,
+        analysis: incidentAnalysis,
+      }))
       const t2 = new Date()
       setTimeline((prev) => [
         ...prev,
-        { time: t2, label: 'AI classified incident — CRITICAL', type: 'alert' },
+        { time: t2, label: 'Narrative Agent classified incident — CRITICAL', type: 'alert' },
       ])
-      postEvent(shipmentId, 'AI classified incident — CRITICAL', 'ai', 'CRITICAL', t2)
+      postEvent(shipmentId, 'Narrative Agent classified incident — CRITICAL', 'ai', 'CRITICAL', t2)
     }, 2800)
 
     // +4s: response documents drafted
@@ -194,16 +213,39 @@ export default function MonitoringDashboard({ shipment: rawShipment, shipmentId:
       const now = new Date()
       setTimeline((prev) => [
         ...prev,
-        { time: now, label: 'FDA deviation report drafted', type: 'doc' },
-        { time: now, label: 'Receiver notification drafted', type: 'doc' },
-        { time: now, label: 'Insurance claim draft opened', type: 'doc' },
-        { time: now, label: 'Quarantine recommendation prepared', type: 'doc' },
+        { time: now, label: 'Response Agent drafted FDA deviation report', type: 'doc' },
+        { time: now, label: 'Response Agent drafted receiver notification', type: 'doc' },
+        { time: now, label: 'Response Agent opened insurance claim draft', type: 'doc' },
+        { time: now, label: 'Response Agent prepared quarantine recommendation', type: 'doc' },
       ])
     }, 4000)
   }
 
+  function resolveActiveAgentEvent() {
+    if (!activeAgentEvent) return
+    setAgentLog((prev) => [
+      {
+        ...activeAgentEvent,
+        status: 'RESOLVED',
+        resolvedAt: new Date().toISOString(),
+      },
+      ...prev,
+    ])
+    setActiveAgentEvent(null)
+  }
+
   function handleEndDelivery() {
-    onEndDelivery({ sensors, analysis, timeline, incidentActive })
+    const resolvedLog = activeAgentEvent
+      ? [{ ...activeAgentEvent, status: 'RESOLVED', resolvedAt: new Date().toISOString() }, ...agentLog]
+      : agentLog
+    onEndDelivery({
+      sensors,
+      analysis,
+      timeline,
+      incidentActive,
+      activeAgentEvent,
+      agentLog: resolvedLog,
+    })
   }
 
   const statusColor = analysis.status === 'CRITICAL' ? 'var(--red)' : analysis.status === 'WARNING' ? 'var(--amber)' : 'var(--teal)'
@@ -254,7 +296,11 @@ export default function MonitoringDashboard({ shipment: rawShipment, shipmentId:
         {/* ── Main grid ── */}
         <div className="dashboard-grid">
           <SensorPanel sensors={sensors} shipment={shipment} />
-          <AIAnalysisPanel analysis={analysis} />
+          <AIAnalysisPanel
+            activeEvent={activeAgentEvent}
+            log={agentLog}
+            onResolve={resolveActiveAgentEvent}
+          />
           <SensorCharts history={sensorHistory} shipment={shipment} />
           <RoutePanel sensors={sensors} shipment={shipment} />
           <TimelinePanel timeline={timeline} />

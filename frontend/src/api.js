@@ -18,6 +18,7 @@ export const listShipments = () => req('GET', '/shipments')
 export const getShipment = (id) => req('GET', `/shipments/${id}`)
 export const createShipment = (data) => req('POST', '/shipments', data)
 export const updateShipment = (id, data) => req('PATCH', `/shipments/${id}`, data)
+export const deleteShipment = (id) => req('DELETE', `/shipments/${id}`)
 
 // Shipment types (templates)
 export const listShipmentTypes = () => req('GET', '/shipment-types')
