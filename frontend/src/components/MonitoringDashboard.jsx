@@ -585,7 +585,7 @@ export default function MonitoringDashboard({ shipment: rawShipment, shipmentId:
         </div>
         <div className="dashboard-controls">
           <ActiveShipmentSwitcher currentShipmentId={shipmentId} />
-          {!incidentActive ? (
+          {/* {!incidentActive ? (
             <button className="btn-incident" onClick={triggerIncident}>
               ⚡ Inject Sensor Event <KeyboardHint keys={['⇧', 'T']} dim />
             </button>
@@ -593,7 +593,7 @@ export default function MonitoringDashboard({ shipment: rawShipment, shipmentId:
             <button className="incident-badge-btn mono" onClick={resetToNominal} title="Reset to nominal (Shift+N)">
               INCIDENT ACTIVE <KeyboardHint keys={['⇧', 'N']} dim />
             </button>
-          )}
+          )} */}
           <button className="btn-end-delivery" onClick={handleEndDelivery}>
             Complete Delivery <KeyboardHint keys={['⇧', 'E']} dim />
           </button>
