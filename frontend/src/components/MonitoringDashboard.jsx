@@ -178,6 +178,24 @@ export default function MonitoringDashboard({ shipment: rawShipment, shipmentId:
   useEffect(() => { incidentActiveRef.current = incidentActive }, [incidentActive])
   useEffect(() => { aiRunningRef.current = activeAgentEvent?.status === 'ANALYZING' }, [activeAgentEvent])
 
+  // Keep charts aligned with the same live readings shown in SensorPanel.
+  useEffect(() => {
+    if (!liveData || incidentRef.current) return
+
+    const temperature = Number(liveData.temperature)
+    const humidity = Number(liveData.humidity)
+    if (!Number.isFinite(temperature) || !Number.isFinite(humidity)) return
+
+    setSensorHistory((h) => [
+      ...h.slice(-59),
+      {
+        ts: Date.now(),
+        temperature: parseFloat(temperature.toFixed(1)),
+        humidity: Math.round(humidity),
+      },
+    ])
+  }, [liveData])
+
   // Live anomaly detection — triggers AI on red anomalies or big sensor shifts
   useEffect(() => {
     if (!liveData) return
@@ -313,10 +331,6 @@ export default function MonitoringDashboard({ shipment: rawShipment, shipmentId:
         const newProgress = Math.min(prev.routeProgress + 0.25, 95)
         const newTemp = parseFloat((shipment.tempNominal + (Math.random() - 0.5) * 0.4).toFixed(1))
         const newHumidity = Math.round(shipment.humidityNominal + (Math.random() - 0.5) * 3)
-        setSensorHistory((h) => [
-          ...h.slice(-59),
-          { ts: Date.now(), temperature: newTemp, humidity: newHumidity },
-        ])
         return {
           ...prev,
           temperature: newTemp,

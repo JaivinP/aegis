@@ -156,28 +156,55 @@ def list_voices() -> list[Dict[str, Any]]:
 def build_anomaly_alert_text(payload: Dict[str, Any], narrative_text: str) -> str:
     shipment = payload.get("shipment", {})
     sensors = payload.get("currentSensors", {})
-    shipment_id = payload.get("shipmentId") or shipment.get("shipmentId") or "current shipment"
+    thresholds = payload.get("thresholds", {})
+    shipment_name = (
+        shipment.get("productName")
+        or shipment.get("name")
+        or payload.get("shipmentId")
+        or shipment.get("shipmentId")
+        or "current shipment"
+    )
     temperature = sensors.get("temperature")
     humidity = sensors.get("humidity")
+    shock_count = sensors.get("shockCount") or sensors.get("shockDetected")
     seal_status = sensors.get("sealStatus")
     water_exposure = sensors.get("waterExposure")
 
-    facts = []
-    if temperature is not None:
-        facts.append(f"temperature is {temperature} degrees Celsius")
-    if humidity is not None:
-        facts.append(f"humidity is {humidity} percent")
-    if water_exposure not in [None, False, "DRY"]:
-        facts.append("water exposure is detected")
-    if seal_status and seal_status != "INTACT":
-        facts.append(f"seal status is {seal_status}")
+    issues = []
+    temp_min = thresholds.get("tempMin")
+    temp_max = thresholds.get("tempMax")
+    if temperature is not None and temp_min is not None and temp_max is not None:
+        if temperature < temp_min or temperature > temp_max:
+            issues.append("temperature out of range")
 
-    detail = f" Current readings show {', '.join(facts)}." if facts else ""
+    humidity_min = thresholds.get("humidityMin")
+    humidity_max = thresholds.get("humidityMax")
+    if humidity is not None and humidity_min is not None and humidity_max is not None:
+        if humidity < humidity_min or humidity > humidity_max:
+            issues.append("humidity out of range")
+
+    if shock_count:
+        issues.append("shock detected")
+    if water_exposure not in [None, False, "DRY"]:
+        issues.append("water exposure")
+    if seal_status and seal_status != "INTACT":
+        issues.append("compromised seal")
+
+    issue_summary = format_issue_list(issues) if issues else "an anomaly"
     classification = extract_classification(narrative_text) or "anomaly"
     return (
-        f"Aegis alert. {classification.title()} detected on shipment {shipment_id}."
-        f"{detail} Check the dashboard immediately."
+        f"Aegis alert. {shipment_name} has {issue_summary}."
+        f" Classification: {classification.title()}. Check the dashboard."
     )
+
+
+def format_issue_list(issues: list[str]) -> str:
+    unique_issues = list(dict.fromkeys(issues))
+    if len(unique_issues) == 1:
+        return unique_issues[0]
+    if len(unique_issues) == 2:
+        return f"{unique_issues[0]} and {unique_issues[1]}"
+    return f"{', '.join(unique_issues[:-1])}, and {unique_issues[-1]}"
 
 
 def extract_classification(narrative_text: str) -> Optional[str]:

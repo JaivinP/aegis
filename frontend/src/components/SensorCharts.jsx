@@ -24,18 +24,22 @@ const TOOLTIP_STYLE = {
 }
 
 export default function SensorCharts({ history, shipment }) {
-  if (history.length < 2) return null
+  if (!history.length) return null
 
-  const tempOutOfRange = history.some(
+  const chartHistory = history.length > 1
+    ? history
+    : [{ ...history[0], ts: history[0].ts - 1000 }, history[0]]
+
+  const tempOutOfRange = chartHistory.some(
     (h) => h.temperature < shipment.tempMin || h.temperature > shipment.tempMax
   )
-  const humidityOutOfRange = history.some(
+  const humidityOutOfRange = chartHistory.some(
     (h) => h.humidity < shipment.humidityMin || h.humidity > shipment.humidityMax
   )
 
   // Y-axis domain with padding
-  const temps = history.map((h) => h.temperature)
-  const hums = history.map((h) => h.humidity)
+  const temps = chartHistory.map((h) => h.temperature)
+  const hums = chartHistory.map((h) => h.humidity)
   const tempDomain = [
     Math.min(...temps, shipment.tempMin) - 1,
     Math.max(...temps, shipment.tempMax) + 1,
@@ -62,7 +66,7 @@ export default function SensorCharts({ history, shipment }) {
             <span className={`chart-status-dot ${tempOutOfRange ? 'red' : 'teal'}`} />
           </div>
           <ResponsiveContainer width="100%" height={160}>
-            <LineChart data={history} margin={{ top: 4, right: 8, left: -20, bottom: 0 }}>
+            <LineChart data={chartHistory} margin={{ top: 4, right: 8, left: -20, bottom: 0 }}>
               <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" />
               <XAxis
                 dataKey="ts"
@@ -111,7 +115,7 @@ export default function SensorCharts({ history, shipment }) {
             <span className={`chart-status-dot ${humidityOutOfRange ? 'red' : 'teal'}`} />
           </div>
           <ResponsiveContainer width="100%" height={160}>
-            <LineChart data={history} margin={{ top: 4, right: 8, left: -20, bottom: 0 }}>
+            <LineChart data={chartHistory} margin={{ top: 4, right: 8, left: -20, bottom: 0 }}>
               <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" />
               <XAxis
                 dataKey="ts"
