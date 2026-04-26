@@ -96,6 +96,52 @@ function getLiveAnomalyReasons(liveData, shipment) {
   return reasons
 }
 
+function computeLiveViability(liveData, shipment, routeProgress) {
+  let score = 97.8
+
+  if (!liveData) return score
+
+  const temperature = Number(liveData.temperature)
+  const humidity = Number(liveData.humidity)
+  const shockDetected = Number(liveData.shockDetected)
+  const water = Number(liveData.water)
+  const accel = liveData.acceleration
+  const shock = accel ? Math.sqrt(accel.x ** 2 + accel.y ** 2 + accel.z ** 2) : 0
+
+  if (Number.isFinite(temperature)) {
+    if (temperature < shipment.tempMin) {
+      score -= Math.min((shipment.tempMin - temperature) * 3, 20)
+    } else if (temperature > shipment.tempMax) {
+      score -= Math.min((temperature - shipment.tempMax) * 3, 20)
+    }
+  }
+
+  if (Number.isFinite(humidity)) {
+    if (humidity < shipment.humidityMin) {
+      score -= Math.min((shipment.humidityMin - humidity) * 0.5, 10)
+    } else if (humidity > shipment.humidityMax) {
+      score -= Math.min((humidity - shipment.humidityMax) * 0.5, 10)
+    }
+  }
+
+  if (Number.isFinite(shockDetected) && shockDetected > 0) {
+    score -= Math.min(shockDetected * 5, 15)
+  }
+
+  if (shock > 4) {
+    score -= 10
+  }
+
+  if (Number.isFinite(water) && water >= 30) {
+    score -= Math.min(water * 0.2, 10)
+  }
+
+  // Natural degradation as shipment travels further
+  score -= (routeProgress || 0) * 0.02
+
+  return parseFloat(Math.max(score, 0).toFixed(1))
+}
+
 function getInitialTimeline() {
   const now = Date.now()
   return [
@@ -213,6 +259,13 @@ export default function MonitoringDashboard({ shipment: rawShipment, shipmentId:
   useEffect(() => { activeAgentEventRef.current = activeAgentEvent }, [activeAgentEvent])
   useEffect(() => { agentLogRef.current = agentLog }, [agentLog])
   useEffect(() => { aiRunningRef.current = activeAgentEvent?.status === 'ANALYZING' }, [activeAgentEvent])
+
+  // Update viability score dynamically based on live sensor data and route progress
+  useEffect(() => {
+    if (!liveData || incidentRef.current) return
+    const newViability = computeLiveViability(liveData, shipment, sensors.routeProgress)
+    setAnalysis((prev) => ({ ...prev, viabilityScore: newViability }))
+  }, [liveData, sensors.routeProgress]) // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     if (!liveData) return
