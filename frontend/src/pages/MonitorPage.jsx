@@ -2,8 +2,10 @@ import { useEffect, useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { getShipment, updateShipment, saveReport } from '../api'
 import MonitoringDashboard from '../components/MonitoringDashboard'
+import { SHIPMENT_TYPES } from '../data/shipmentTypes'
 
-export default function MonitorPage() {
+
+export default function MonitorPage() {/*
   const { id } = useParams()
   const navigate = useNavigate()
   const [shipment, setShipment] = useState(null)
@@ -39,4 +41,6 @@ export default function MonitorPage() {
   if (!shipment) return <div className="page-content"><div className="page-inner db-loading mono">Loading…</div></div>
 
   return <MonitoringDashboard shipment={shipment} shipmentId={id} onEndDelivery={handleEndDelivery} />
+*/
+  return <MonitoringDashboard shipment={SHIPMENT_TYPES[0]} shipmentId={SHIPMENT_TYPES[0].id} onEndDelivery={()=>{}} />
 }
