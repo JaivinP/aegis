@@ -384,8 +384,6 @@ export default function MonitoringDashboard({ shipment: rawShipment, shipmentId:
     if (now - redAnomalyStartedAtRef.current < RED_ANOMALY_HOLD_MS) return
     if (!prev) return
     if (aiRunningRef.current) return
-    if (voiceAlertActiveRef.current) return
-    if (now - lastAiTriggerRef.current < AI_TRIGGER_COOLDOWN_MS) return
 
     // Include big shifts as context, but do not let them trigger AI by themselves.
     const tempShift = Math.abs(liveData.temperature - prev.temperature)
@@ -399,6 +397,17 @@ export default function MonitoringDashboard({ shipment: rawShipment, shipmentId:
 
     if (reasons.length === 0) return
 
+    const hasShockAnomaly = reasons.some((reason) => {
+      const normalized = reason.toLowerCase()
+      return normalized.includes('shock') || normalized.includes('movement')
+    })
+    if (!hasShockAnomaly && now - lastAiTriggerRef.current < AI_TRIGGER_COOLDOWN_MS) return
+    if (voiceAlertActiveRef.current && !hasShockAnomaly) return
+    if (hasShockAnomaly) {
+      resetVoiceAlert(shipmentId).catch(() => {})
+      lastAiTriggerRef.current = 0
+    }
+
     const suppressVoice = voiceAlertActiveRef.current
     voiceAlertActiveRef.current = true
     lastAiTriggerRef.current = now
@@ -411,7 +420,7 @@ export default function MonitoringDashboard({ shipment: rawShipment, shipmentId:
       water: liveData.water,
       acceleration: liveData.acceleration,
       shockDetected: liveData.shockDetected,
-      shockCount: reasons.some((reason) => reason.toLowerCase().includes('shock') || reason.toLowerCase().includes('movement'))
+      shockCount: hasShockAnomaly
         ? 1
         : sensorsRef.current.shockCount,
     }
@@ -444,7 +453,8 @@ export default function MonitoringDashboard({ shipment: rawShipment, shipmentId:
       ],
       timeline: [...timelineRef.current, { time: t, label: `Live anomaly — ${triggerReason}`, type: 'alert' }],
       analysis: analysisRef.current,
-      suppressVoice,
+      suppressVoice: hasShockAnomaly ? false : suppressVoice,
+      forceVoiceAlert: hasShockAnomaly,
       incident: {
         trigger: triggerReason,
         severity: 'WARNING',
@@ -567,9 +577,9 @@ export default function MonitoringDashboard({ shipment: rawShipment, shipmentId:
         degradationRisk: 31.4,
         narrative:
           'Shock event followed by humidity increase and accelerated warming. Probable seal compromise detected. Pattern is inconsistent with normal refrigeration drift. Multi-sensor correlation indicates physical mishandling. Escalation packet has been drafted.',
-        sealBreachConfidence: 87.3,
-        tamperingConfidence: 74.1,
-        negligenceConfidence: 62.8,
+        sealBreachConfidence: 82.4,
+        tamperingConfidence: 82.4,
+        negligenceConfidence: 82.4,
       }
       const incidentSensors = {
         ...sensors,

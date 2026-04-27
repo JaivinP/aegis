@@ -1,5 +1,6 @@
 import os
 from datetime import datetime
+from pathlib import Path
 from uuid import uuid4
 from dotenv import load_dotenv
 from openai import OpenAI
@@ -10,14 +11,13 @@ from uagents_core.contrib.protocols.chat import (
     TextContent,
 )
 
-load_dotenv()
+REPO_ROOT = Path(__file__).resolve().parents[1]
+load_dotenv(REPO_ROOT / ".env")
+load_dotenv(REPO_ROOT / "database" / ".env", override=False)
 
-llm = OpenAI(
-    api_key=os.getenv("ASI1_API_KEY"),
-    base_url="https://api.asi1.ai/v1"
-)
+llm = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 
-RESPONSE_MODEL = os.getenv("FAILSAFE_RESPONSE_MODEL", "asi1-mini")
+RESPONSE_MODEL = os.getenv("FAILSAFE_RESPONSE_MODEL", "gpt-4.1-mini")
 
 agent = Agent(
     name="failsafe-response",

@@ -146,6 +146,22 @@ def play_audio(path: Path) -> None:
     raise RuntimeError("No supported audio player found. Install ffplay/mpg123 or omit playback.")
 
 
+def play_text(text: str) -> None:
+    if sys.platform == "darwin":
+        subprocess.run(["say", text], check=True)
+        return
+
+    candidates = (["spd-say", text], ["espeak", text])
+    for command in candidates:
+        try:
+            subprocess.run(command, check=True)
+            return
+        except FileNotFoundError:
+            continue
+
+    raise RuntimeError("No supported text-to-speech fallback found.")
+
+
 def list_voices() -> list[Dict[str, Any]]:
     load_voice_env()
 
@@ -255,8 +271,9 @@ def alert_for_anomaly(
     play: bool = True,
 ) -> Dict[str, Any]:
     alert_key = get_alert_key(payload)
+    force_alert = bool(payload.get("forceVoiceAlert"))
 
-    if payload.get("suppressVoice"):
+    if payload.get("suppressVoice") and not force_alert:
         with _ACTIVE_ALERT_LOCK:
             _ACTIVE_ALERT_KEYS.add(alert_key)
         return {"triggered": False, "suppressed": True, "reason": "active_issue_already_alerted"}
@@ -266,18 +283,32 @@ def alert_for_anomaly(
         return {"triggered": False}
 
     with _ACTIVE_ALERT_LOCK:
-        if alert_key in _ACTIVE_ALERT_KEYS:
+        if alert_key in _ACTIVE_ALERT_KEYS and not force_alert:
             return {"triggered": False, "suppressed": True, "reason": "active_issue_already_alerted"}
         _ACTIVE_ALERT_KEYS.add(alert_key)
 
     text = build_anomaly_alert_text(payload, narrative_text)
-    audio_path = synthesize_speech(text=text, output_path=output_path)
 
-    if play:
-        play_audio(audio_path)
+    try:
+        audio_path = synthesize_speech(text=text, output_path=output_path)
 
-    return {
-        "triggered": True,
-        "text": text,
-        "audioPath": str(audio_path),
-    }
+        if play:
+            play_audio(audio_path)
+
+        return {
+            "triggered": True,
+            "text": text,
+            "audioPath": str(audio_path),
+        }
+    except Exception as exc:
+        if not play:
+            raise
+
+        play_text(text)
+        return {
+            "triggered": True,
+            "text": text,
+            "audioPath": None,
+            "fallbackAudio": "system_tts",
+            "warning": str(exc),
+        }

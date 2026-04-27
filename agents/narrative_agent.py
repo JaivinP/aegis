@@ -3,6 +3,7 @@ import time, os, statistics, random
 import math
 import requests
 from datetime import datetime
+from pathlib import Path
 from uuid import uuid4
 from dotenv import load_dotenv
 from openai import OpenAI
@@ -14,13 +15,13 @@ from uagents_core.contrib.protocols.chat import (
     chat_protocol_spec
 )
 
-load_dotenv()
+REPO_ROOT = Path(__file__).resolve().parents[1]
+load_dotenv(REPO_ROOT / ".env")
+load_dotenv(REPO_ROOT / "database" / ".env", override=False)
 
-# ─── LLM CLIENT (ASI1) ───────────────────────────────────────────────────────
-llm = OpenAI(
-    api_key=os.getenv("ASI1_API_KEY"),
-    base_url="https://api.asi1.ai/v1"
-)
+# ─── LLM CLIENT (OPENAI) ─────────────────────────────────────────────────────
+llm = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+NARRATIVE_MODEL = os.getenv("FAILSAFE_NARRATIVE_MODEL", "gpt-4.1-mini")
 
 # ─── AGENT ───────────────────────────────────────────────────────────────────
 agent = Agent(
@@ -220,7 +221,7 @@ Be precise. Cite specific sensor values and z-scores. A logistics manager's
 decision depends on your output. Keep total response under 150 words."""
 
     response = llm.chat.completions.create(
-        model="asi1-mini",
+        model=NARRATIVE_MODEL,
         max_tokens=300,
         messages=[{"role": "user", "content": prompt}]
     )
@@ -342,7 +343,7 @@ RECOMMENDED ACTION: one immediate action
 PREDICTION: what happens in the next 15 minutes if no action is taken
 """
     response = llm.chat.completions.create(
-        model="asi1-mini",
+        model=NARRATIVE_MODEL,
         max_tokens=450,
         messages=[{"role": "user", "content": prompt}]
     )
@@ -401,7 +402,7 @@ Write a professional 150-word end-of-shipment report covering:
 Be specific, cite numbers, professional tone."""
 
     response = llm.chat.completions.create(
-        model="asi1-mini",
+        model=NARRATIVE_MODEL,
         max_tokens=400,
         messages=[{"role": "user", "content": prompt}]
     )

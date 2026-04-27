@@ -84,32 +84,54 @@ async def reset_voice(payload: Dict[str, Any]):
 
 @app.post("/agents/narrative/analyze")
 async def analyze_with_narrative_agent(payload: Dict[str, Any]):
+    from voice_agent import alert_for_anomaly
+
+    def fallback_narrative_text() -> str:
+        incident = payload.get("incident") or {}
+        trigger = incident.get("trigger") or payload.get("query") or "Shipment anomaly detected"
+        severity = str(incident.get("severity") or "ANOMALY").upper()
+        classification = "CRITICAL" if severity == "CRITICAL" else "ANOMALY"
+        return (
+            f"CLASSIFICATION: {classification}\n"
+            "CONFIDENCE: unavailable\n"
+            f"ASSESSMENT: {trigger}.\n"
+            "COMPETING HYPOTHESIS: Narrative agent unavailable.\n"
+            "RECOMMENDED ACTION: Check the dashboard and inspect the shipment.\n"
+            "PREDICTION: Unavailable because the narrative agent failed."
+        )
+
+    fallback_text = fallback_narrative_text()
+    if payload.get("enableVoiceAlert"):
+        try:
+            audio_alert = await run_in_threadpool(alert_for_anomaly, payload, fallback_text)
+        except Exception as exc:
+            audio_alert = {
+                "triggered": True,
+                "ok": False,
+                "error": str(exc),
+            }
+    else:
+        audio_alert = {"triggered": False, "reason": "voice_alert_disabled"}
+
     try:
         from narrative_agent import generate_narrative_from_payload
-        from voice_agent import alert_for_anomaly
 
         text = await run_in_threadpool(generate_narrative_from_payload, payload)
-        if payload.get("enableVoiceAlert"):
-            try:
-                audio_alert = await run_in_threadpool(alert_for_anomaly, payload, text)
-            except Exception as exc:
-                audio_alert = {
-                    "triggered": True,
-                    "ok": False,
-                    "error": str(exc),
-                }
-        else:
-            audio_alert = {"triggered": False, "reason": "voice_alert_disabled"}
-
-        return {
-            "ok": True,
-            "agent": "failsafe-narrative",
-            "text": text,
-            "audioAlert": audio_alert,
-            "generatedAt": datetime.now(timezone.utc).isoformat(),
-        }
+        narrative_ok = True
+        narrative_error = None
     except Exception as exc:
-        raise HTTPException(status_code=502, detail=f"narrative agent failed: {exc}") from exc
+        text = fallback_narrative_text()
+        narrative_ok = False
+        narrative_error = str(exc)
+
+    return {
+        "ok": narrative_ok,
+        "agent": "failsafe-narrative",
+        "text": text,
+        "audioAlert": audio_alert,
+        "error": narrative_error,
+        "generatedAt": datetime.now(timezone.utc).isoformat(),
+    }
 
 
 @app.post("/agents/response/report")
